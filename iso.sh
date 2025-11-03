@@ -1,15 +1,15 @@
 #!/bin/sh
 set -e
-. ./build.sh
+. ./build.sh "$@"
 
 mkdir -p isodir
 mkdir -p isodir/boot
 mkdir -p isodir/boot/grub
 
-cp sysroot/boot/myos.kernel isodir/boot/myos.kernel
+cp sysroot/boot/glxykrnl isodir/boot/glxykrnl
 cat > isodir/boot/grub/grub.cfg << EOF
-menuentry "myos" {
-	multiboot /boot/myos.kernel
+menuentry "GalaxyOS Neptune" {
+	multiboot /boot/glxykrnl
 }
 EOF
-grub-mkrescue -o myos.iso isodir
+grub-mkrescue -o galaxyos.iso isodir

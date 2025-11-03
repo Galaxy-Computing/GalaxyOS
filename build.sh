@@ -1,6 +1,6 @@
 #!/bin/sh
 set -e
-. ./headers.sh
+. ./headers.sh "$@"
 
 for PROJECT in $PROJECTS; do
   (cd $PROJECT && DESTDIR="$SYSROOT" $MAKE install)
