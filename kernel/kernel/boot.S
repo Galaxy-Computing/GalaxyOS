@@ -145,3 +145,26 @@ load_gdt:
     add $8, %esp        # Restore stack (remove 2 DWORD values we put on stack to
                         #     create FAR Pointer)
     ret
+
+.global init_fpu
+init_fpu:
+	mov %cr0, %edx
+	and $0xFFFFFFF3, %edx # clear EM and TS
+	mov %edx, %cr0
+	fninit
+	fnstsw (testword)
+	cmpw $0, (testword)
+	jne nofpu
+	jmp hasfpu
+
+nofpu:
+	mov $1, %eax # failure
+	ret
+
+hasfpu:
+	fninit
+	mov $0, %eax # success
+	ret
+
+testword:
+.word 0x55AA

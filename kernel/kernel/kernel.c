@@ -2,9 +2,19 @@
 
 #include <kernel/tty.h>
 #include <kernel/gdt.h>
+#include <kernel/fpu.h>
+#include <kernel/klog.h>
 
 void kernel_main(void) {
 	gdt_setup();
 	terminal_initialize();
-	printf("GalaxyOS Neptune 0.1.0-alpha+2\n");
+	log_ok("Terminal initialized");
+	if (init_fpu()) {
+		log_fail("FPU not found. System cannot continue. Halting!");
+		return;
+	}
+	log_ok("FPU initialized");
+	printf("Welcome to GalaxyOS Neptune 0.1.0-dev+3\n");
 }
+
+

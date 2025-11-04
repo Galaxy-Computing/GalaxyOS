@@ -28,6 +28,7 @@ kernel/kernel.o \
 kernel/boot.o \
 kernel/tty.o \
 kernel/gdt.o \
+kernel/klog.o \
 
 OBJS=\
 $(KERNEL_OBJS) \
