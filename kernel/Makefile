@@ -2,7 +2,7 @@ DEFAULT_HOST!=../default-host.sh
 HOST?=DEFAULT_HOST
 HOSTARCH!=../target-triplet-to-arch.sh $(HOST)
 
-CFLAGS?=-O2 -g
+CFLAGS?=-O0 -g
 CPPFLAGS?=
 LDFLAGS?=
 LIBS?=
@@ -24,11 +24,15 @@ LDFLAGS:=$(LDFLAGS)
 LIBS:=$(LIBS)
 
 KERNEL_OBJS=\
+kernel/drv/io.o \
+kernel/drv/tty.o \
+kernel/init/boot.o \
+kernel/init/exception.o \
+kernel/init/gdt.o \
+kernel/init/idt.o \
+kernel/init/irq.o \
+kernel/init/klog.o \
 kernel/kernel.o \
-kernel/boot.o \
-kernel/tty.o \
-kernel/gdt.o \
-kernel/klog.o \
 
 OBJS=\
 $(KERNEL_OBJS) \

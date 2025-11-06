@@ -67,5 +67,5 @@ void gdt_setup()
     gdt_set_gate(3, 0xFA);
     gdt_set_gate(4, 0xF2);
 
-    load_gdt(&gp, 2 * 0x08, 1 * 0x08);
+    load_gdt(&gp);
 }

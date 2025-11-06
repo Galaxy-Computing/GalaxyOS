@@ -121,29 +121,32 @@ _start:
 	# Enter the high-level kernel.
 	call kernel_main
 
+.global halt
+halt:	
 	# Infinite loop if the system has nothing more to do.
 	cli
-1:	hlt
+	hlt
 	jmp 1b
 
 .global load_gdt
 load_gdt:
     mov 4(%esp), %edx    # EDX is 1st argument - GDT record pointer
-    mov 8(%esp), %eax    # EAX is 2nd argument - Data Selector
+    mov $0x10, %eax    # EAX is 2nd argument - Data Selector   
     lgdt (%edx)          # Load GDT with GDT record pointer passed as 1st argument
     mov %eax, %ds        # Reload all the data descriptors with Data selector (2nd arg)
     mov %eax, %es
     mov %eax, %gs
     mov %eax, %fs
     mov %eax, %ss
-
-    pushl 12(%esp)      # Create FAR pointer on stack using Code selector (3rd argument)
-    push $.setcs         # Offset of FAR JMP will be setcs label below
-    ljmp *(%esp)        # Do the FAR JMP to next instruction to set CS with Code selector,
+    ljmp $0x08, $setcs       # Do the FAR JMP to next instruction to set CS with Code selector,
                         #    and set the EIP (instruction pointer) to offset of setcs
-.setcs:
-    add $8, %esp        # Restore stack (remove 2 DWORD values we put on stack to
-                        #     create FAR Pointer)
+setcs:
+    ret
+
+.global idt_load
+.extern idtp
+idt_load:
+    lidt (idtp)
     ret
 
 .global init_fpu
@@ -168,3 +171,329 @@ hasfpu:
 
 testword:
 .word 0x55AA
+
+.global isr_0
+.global isr_1
+.global isr_2
+.global isr_3
+.global isr_4
+.global isr_5
+.global isr_6
+.global isr_7
+.global isr_8
+.global isr_9
+.global isr_10
+.global isr_11
+.global isr_12
+.global isr_13
+.global isr_14
+.global isr_16
+.global isr_17
+.global isr_18
+.global isr_19
+.global isr_20
+.global isr_21
+.global isr_28
+.global isr_29
+.global isr_30
+
+.extern exception_handle
+
+isr_0:
+	cli
+	push $0
+	push $0
+	jmp isr_common_stub
+
+isr_1:
+	cli
+	push $0
+	push $1
+	jmp isr_common_stub
+
+isr_2:
+	cli
+	push $0
+	push $2
+	jmp isr_common_stub
+
+isr_3:
+	cli
+	push $0
+	push $3
+	jmp isr_common_stub
+
+isr_4:
+	cli
+	push $0
+	push $4
+	jmp isr_common_stub
+
+isr_5:
+	cli
+	push $0
+	push $5
+	jmp isr_common_stub
+
+isr_6:
+	cli
+	push $0
+	push $6
+	jmp isr_common_stub
+
+isr_7:
+	cli
+	push $0
+	push $7
+	jmp isr_common_stub
+
+isr_8:
+	cli
+	push $8
+	jmp isr_common_stub
+
+isr_9:
+	cli
+	push $0
+	push $9
+	jmp isr_common_stub
+
+isr_10:
+	cli
+	push $10
+	jmp isr_common_stub
+
+isr_11:
+	cli
+	push $11
+	jmp isr_common_stub
+
+isr_12:
+	cli
+	push $12
+	jmp isr_common_stub
+
+isr_13:
+	cli
+	push $13
+	jmp isr_common_stub
+
+isr_14:
+	cli
+	push $14
+	jmp isr_common_stub
+
+isr_16:
+	cli
+	push $0
+	push $16
+	jmp isr_common_stub
+
+isr_17:
+	cli
+	push $17
+	jmp isr_common_stub
+
+isr_18:
+	cli
+	push $0
+	push $18
+	jmp isr_common_stub
+
+isr_19:
+	cli
+	push $0
+	push $19
+	jmp isr_common_stub
+
+isr_20:
+	cli
+	push $0
+	push $20
+	jmp isr_common_stub
+
+isr_21:
+	cli
+	push $21
+	jmp isr_common_stub
+
+isr_28:
+	cli
+	push $0
+	push $28
+	jmp isr_common_stub
+
+isr_29:
+	cli
+	push $0
+	push $29
+	jmp isr_common_stub
+
+isr_30:
+	cli
+	push $30
+	jmp isr_common_stub
+
+isr_common_stub:
+    pusha
+    push %ds
+    push %es
+    push %fs
+    push %gs
+    mov $0x10, %ax   # Load the Kernel Data Segment descriptor!
+    mov %ax, %ds
+    mov %ax, %es
+    mov %ax, %fs
+    mov %ax, %gs
+    mov %esp, %eax   # Push us the stack
+    push %eax
+    mov $exception_handle, %eax
+    call %eax       # A special call, preserves the 'eip' register
+    pop %eax
+    pop %gs
+    pop %fs
+    pop %es
+    pop %ds
+    popa
+    add $8, %esp      # Cleans up the pushed error code and pushed ISR number
+	#sti
+    iret           # pops 5 things at once: CS, EIP, EFLAGS, SS, and ESP!
+
+.global irq0
+.global irq1
+.global irq2
+.global irq3
+.global irq4
+.global irq5
+.global irq6
+.global irq7
+.global irq8
+.global irq9
+.global irq10
+.global irq11
+.global irq12
+.global irq13
+.global irq14
+.global irq15
+
+irq0:
+	cli
+	push $0
+	push $32
+	jmp irq_common_stub
+
+irq1:
+	cli
+	push $0
+	push $33
+	jmp irq_common_stub
+
+irq2:
+	cli
+	push $0
+	push $34
+	jmp irq_common_stub
+
+irq3:
+	cli
+	push $0
+	push $35
+	jmp irq_common_stub
+
+irq4:
+	cli
+	push $0
+	push $36
+	jmp irq_common_stub
+
+irq5:
+	cli
+	push $0
+	push $37
+	jmp irq_common_stub
+
+irq6:
+	cli
+	push $0
+	push $38
+	jmp irq_common_stub
+
+irq7:
+	cli
+	push $0
+	push $39
+	jmp irq_common_stub
+
+irq8:
+	cli
+	push $0
+	push $40
+	jmp irq_common_stub
+
+irq9:
+	cli
+	push $0
+	push $41
+	jmp irq_common_stub
+
+irq10:
+	cli
+	push $0
+	push $42
+	jmp irq_common_stub
+
+irq11:
+	cli
+	push $0
+	push $43
+	jmp irq_common_stub
+
+irq12:
+	cli
+	push $0
+	push $44
+	jmp irq_common_stub
+
+irq13:
+	cli
+	push $0
+	push $45
+	jmp irq_common_stub
+
+irq14:
+	cli
+	push $0
+	push $46
+	jmp irq_common_stub
+
+irq15:
+	cli
+	push $0
+	push $47
+	jmp irq_common_stub
+
+.extern irq_handler
+
+irq_common_stub:
+    pusha
+    push %ds
+    push %es
+    push %fs
+    push %gs
+    mov 0x10, %ax
+    mov %ax, %ds
+    mov %ax, %es
+    mov %ax, %fs
+    mov %ax, %gs
+    mov %esp, %eax
+    push %eax
+	mov $irq_handler, %eax
+    call %eax
+    pop %eax
+    pop %gs
+    pop %fs
+    pop %es
+    pop %ds
+    popa
+    add 8, %esp
+    iret
