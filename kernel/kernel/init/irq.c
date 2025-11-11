@@ -79,6 +79,8 @@ void irq_install()
     idt_set_gate(45, &irq13, 0x8E);
     idt_set_gate(46, &irq14, 0x8E);
     idt_set_gate(47, &irq15, 0x8E);
+    
+    asm("sti");
 }
 
 void irq_handler(struct regs *r)

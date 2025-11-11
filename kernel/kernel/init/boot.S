@@ -356,7 +356,7 @@ isr_common_stub:
     pop %ds
     popa
     add $8, %esp      # Cleans up the pushed error code and pushed ISR number
-	#sti
+	sti
     iret           # pops 5 things at once: CS, EIP, EFLAGS, SS, and ESP!
 
 .global irq0
@@ -480,7 +480,7 @@ irq_common_stub:
     push %es
     push %fs
     push %gs
-    mov 0x10, %ax
+    mov $0x10, %ax
     mov %ax, %ds
     mov %ax, %es
     mov %ax, %fs
@@ -495,5 +495,5 @@ irq_common_stub:
     pop %es
     pop %ds
     popa
-    add 8, %esp
+    add $8, %esp
     iret

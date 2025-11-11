@@ -26,6 +26,7 @@ LIBS:=$(LIBS)
 KERNEL_OBJS=\
 kernel/drv/io.o \
 kernel/drv/tty.o \
+kernel/drv/storage/atapio.o \
 kernel/init/boot.o \
 kernel/init/exception.o \
 kernel/init/gdt.o \
@@ -33,6 +34,7 @@ kernel/init/idt.o \
 kernel/init/irq.o \
 kernel/init/klog.o \
 kernel/kernel.o \
+
 
 OBJS=\
 $(KERNEL_OBJS) \

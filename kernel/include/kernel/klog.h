@@ -3,5 +3,6 @@
 
 void log_ok(const char* message);
 void log_fail(const char* message);
+void log_info(const char* message);
 
 #endif

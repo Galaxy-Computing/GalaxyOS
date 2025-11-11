@@ -6,6 +6,7 @@
 #include <kernel/irq.h>
 #include <kernel/fpu.h>
 #include <kernel/klog.h>
+#include <kernel/storage/ata.h>
 
 void kernel_main(void) {
 	gdt_setup();
@@ -18,7 +19,8 @@ void kernel_main(void) {
 		return;
 	}
 	log_ok("FPU initialized");
-	printf("Welcome to GalaxyOS Neptune 0.1.0-dev+4\n");
+	atapio_detect_disks();
+	printf("Welcome to GalaxyOS Neptune 0.1.0-dev+5\n");
 	
 	terminal_putchar(24/0); // this will crash on purpose
 }
