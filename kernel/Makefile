@@ -23,18 +23,11 @@ CPPFLAGS:=$(CPPFLAGS)
 LDFLAGS:=$(LDFLAGS)
 LIBS:=$(LIBS)
 
-KERNEL_OBJS=\
-kernel/drv/io.o \
-kernel/drv/tty.o \
-kernel/drv/storage/atapio.o \
-kernel/init/boot.o \
-kernel/init/exception.o \
-kernel/init/gdt.o \
-kernel/init/idt.o \
-kernel/init/irq.o \
-kernel/init/klog.o \
-kernel/kernel.o \
+recurfind = $(shell find $(1) -name '$(2)')
 
+KERNEL_OBJS =\
+$(patsubst %.c,%.o,$(call recurfind,.,*.c)) \
+$(patsubst %.S,%.o,$(call recurfind,.,*.S)) \
 
 OBJS=\
 $(KERNEL_OBJS) \

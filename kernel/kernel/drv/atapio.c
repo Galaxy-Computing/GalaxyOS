@@ -1,4 +1,4 @@
-#include <kernel/storage/ata.h>
+#include <kernel/ata.h>
 #include <kernel/io.h>
 #include <kernel/klog.h>
 

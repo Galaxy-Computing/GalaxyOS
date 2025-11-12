@@ -6,7 +6,13 @@
 #include <kernel/irq.h>
 #include <kernel/fpu.h>
 #include <kernel/klog.h>
-#include <kernel/storage/ata.h>
+#include <kernel/ata.h>
+#include <kernel/ps2.h>
+#include <kernel/kernel.h>
+#include <kernel/ps2kb.h>
+
+const char *version = "GalaxyOS Neptune 0.1.0-dev+6";
+int bootfinished = 0;
 
 void kernel_main(void) {
 	gdt_setup();
@@ -19,8 +25,12 @@ void kernel_main(void) {
 		return;
 	}
 	log_ok("FPU initialized");
+	ps2_init();
+	ps2kb_init();
 	atapio_detect_disks();
-	printf("Welcome to GalaxyOS Neptune 0.1.0-dev+5\n");
+	printf("Welcome to %s\n",version);
+	bootfinished = 1;
 	
-	terminal_putchar(24/0); // this will crash on purpose
+	while (1) { } // spin
+	//terminal_putchar(24/0); // this will crash on purpose
 }
