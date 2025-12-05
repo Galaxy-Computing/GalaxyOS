@@ -75,7 +75,7 @@ void atapio_identify(unsigned short bus, char select, struct ata_device *device)
 	        terminal_setfgcolor(VGA_COLOR_LIGHT_BLUE);
 	        printf("INFO");
 	        terminal_setfgcolor(VGA_COLOR_LIGHT_MAGENTA);
-	        printf("] [ATAPIO] Detected ATA device in %x:%x\n",bus,select);
+	        printf("] [ATAPIO] Detected ATA device in %x:%x\n",bus,(int)select);
             unsigned status = inb(bus + 7);
             while ((status & 9) == 0) { status = inb(bus + 7); }
             if ((status & 1) == 0) {

@@ -38,17 +38,26 @@ char* itoa(int num, char* str, int base)
 		return str; 
 	}
 
-	if (num < 0 && base == 10) 
+	if (base == 10) 
 	{ 
-		isNegative = true;
-		num = -num; 
-	} 
-
-	while (num != 0) 
-	{ 
-		int rem = num % base; 
-		str[i++] = (rem > 9)? (rem-10) + 'a' : rem + '0'; 
-		num = num/base; 
+		if (num < 0) {
+			isNegative = true;
+			num = -num; 
+		}
+		while (num != 0) 
+		{ 
+			int rem = num % base; 
+			str[i++] = (rem > 9)? (rem-10) + 'a' : rem + '0'; 
+			num = num/base; 
+		}
+	} else {
+		unsigned int truenum = (unsigned int)num;
+		while (truenum != 0) 
+		{ 
+			unsigned int rem = truenum % base; 
+			str[i++] = (rem > 9)? (rem-10) + 'a' : rem + '0'; 
+			truenum = truenum/base; 
+		}
 	}
 
 	if (isNegative == true) 

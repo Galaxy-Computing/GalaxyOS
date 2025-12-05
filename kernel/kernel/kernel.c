@@ -29,7 +29,6 @@ void kernel_main(multiboot_info_t* mbd, unsigned int magic, unsigned int pagetab
 		panic("The OS was not loaded with a multiboot compliant bootloader");
 	}
 	if(!(vmbd->flags >> 6 & 0x1)) {
-        return;
 		panic("The bootloader did not provide a memory map");
     }
 
@@ -58,10 +57,9 @@ void kernel_main(multiboot_info_t* mbd, unsigned int magic, unsigned int pagetab
 	} else {
 		*testalloc = 1;
 		printf("Test allocate: %i\n", *testalloc);
-		printf("Address: %x\n", testalloc);
+		printf("Address: 0x%x\n", testalloc);
 	}
 	kfree((void*)testalloc); // free it, we don't need it anymore
 
-	panic("We are just testing here");
 	while (1) { } // spin
 }
