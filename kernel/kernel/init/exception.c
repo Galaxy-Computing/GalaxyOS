@@ -2,32 +2,32 @@
 #include <kernel/idt.h>
 #include <stdio.h>
 
-extern void isr_0();
-extern void isr_1();
-extern void isr_2();
-extern void isr_3();
-extern void isr_4();
-extern void isr_5();
-extern void isr_6();
-extern void isr_7();
-extern void isr_8();
-extern void isr_9();
-extern void isr_10();
-extern void isr_11();
-extern void isr_12();
-extern void isr_13();
-extern void isr_14();
-extern void isr_16();
-extern void isr_17();
-extern void isr_18();
-extern void isr_19();
-extern void isr_20();
-extern void isr_21();
-extern void isr_28();
-extern void isr_29();
-extern void isr_30();
+extern void isr_0(void);
+extern void isr_1(void);
+extern void isr_2(void);
+extern void isr_3(void);
+extern void isr_4(void);
+extern void isr_5(void);
+extern void isr_6(void);
+extern void isr_7(void);
+extern void isr_8(void);
+extern void isr_9(void);
+extern void isr_10(void);
+extern void isr_11(void);
+extern void isr_12(void);
+extern void isr_13(void);
+extern void isr_14(void);
+extern void isr_16(void);
+extern void isr_17(void);
+extern void isr_18(void);
+extern void isr_19(void);
+extern void isr_20(void);
+extern void isr_21(void);
+extern void isr_28(void);
+extern void isr_29(void);
+extern void isr_30(void);
 
-void isrs_install() {
+void isrs_install(void) {
     idt_set_gate(0, &isr_0, 0x8F);
     idt_set_gate(1, &isr_1, 0x8F);
     idt_set_gate(2, &isr_2, 0x8F);
@@ -53,8 +53,6 @@ void isrs_install() {
     idt_set_gate(29, &isr_29, 0x8F);
     idt_set_gate(30, &isr_30, 0x8F);
 }
-
-
 
 void exception_handle(struct regs *r) {
     if (r->int_no < 32) {

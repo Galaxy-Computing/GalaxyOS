@@ -4,8 +4,7 @@
 #include <string.h>
 
 /* Defines an IDT entry */
-struct idt_entry
-{
+struct idt_entry {
     unsigned short offset_lo;
     unsigned short sel;        
     unsigned char always0;     
@@ -14,8 +13,7 @@ struct idt_entry
 } __attribute__((packed));
 
 
-struct idt_ptr
-{
+struct idt_ptr {
     unsigned short limit;
     unsigned int base;
 } __attribute__((packed));
@@ -25,10 +23,9 @@ struct idt_entry idt[256];
 struct idt_ptr idtp;
 
 /* This exists in 'start.asm', and is used to load our IDT */
-extern void idt_load();
+extern void idt_load(void);
 
-void idt_set_gate(unsigned char num, void(*func)(), unsigned char flags)
-{
+void idt_set_gate(unsigned char num, void(*func)(), unsigned char flags) {
     idt[num].offset_lo = (unsigned short)((unsigned int)func & 0xFFFF);
     idt[num].offset_hi = (unsigned short)(((unsigned int)func >> 16) & 0xFFFF);
 
@@ -38,8 +35,7 @@ void idt_set_gate(unsigned char num, void(*func)(), unsigned char flags)
     idt[num].always0 = 0;
 }
 
-void idt_setup()
-{
+void idt_setup(void) {
     /* Sets the special IDT pointer up, just like in 'gdt.c' */
     idtp.limit = (sizeof (struct idt_entry) * 256) - 1;
     idtp.base = (unsigned int)&idt;

@@ -4,6 +4,61 @@
 #include <stdio.h>
 #include <string.h>
 
+void swap(char *a, char *b)                                                                                                                                                                       
+  {
+       if(!a || !b)
+           return;
+
+       char temp = *(a);
+       *(a) = *(b);
+       *(b) = temp;
+   }
+
+void reverse(char *str, int length) 
+{ 
+	int start = 0; 
+	int end = length -1; 
+	while (start < end) 
+	{ 
+		swap((str+start), (str+end)); 
+		start++; 
+		end--; 
+	} 
+} 
+
+char* itoa(int num, char* str, int base) 
+{ 
+	int i = 0; 
+	bool isNegative = false; 
+
+	if (num == 0) 
+	{ 
+		str[i++] = '0'; 
+		str[i] = '\0'; 
+		return str; 
+	}
+
+	if (num < 0 && base == 10) 
+	{ 
+		isNegative = true;
+		num = -num; 
+	} 
+
+	while (num != 0) 
+	{ 
+		int rem = num % base; 
+		str[i++] = (rem > 9)? (rem-10) + 'a' : rem + '0'; 
+		num = num/base; 
+	}
+
+	if (isNegative == true) 
+		str[i++] = '-'; 
+
+	str[i] = '\0';
+	reverse(str, i); 
+	return str; 
+} 
+
 static bool print(const char* data, size_t length) {
 	const unsigned char* bytes = (const unsigned char*) data;
 	for (size_t i = 0; i < length; i++)
@@ -11,6 +66,8 @@ static bool print(const char* data, size_t length) {
 			return false;
 	return true;
 }
+
+char buf[11]; 
 
 int printf(const char* restrict format, ...) {
 	va_list parameters;
@@ -59,6 +116,22 @@ int printf(const char* restrict format, ...) {
 				return -1;
 			}
 			if (!print(str, len))
+				return -1;
+			written += len;
+		} else if (*format == 'i') {
+			format++;
+			int i = va_arg(parameters, int);
+			itoa(i, buf, 10);
+			size_t len = strlen(buf);
+			if (!print(buf, len))
+				return -1;
+			written += len;
+		} else if (*format == 'x') {
+			format++;
+			int i = va_arg(parameters, int);
+			itoa(i, buf, 16);
+			size_t len = strlen(buf);
+			if (!print(buf, len))
 				return -1;
 			written += len;
 		} else {

@@ -13,7 +13,7 @@ struct regs
 
 struct idt_entry;
 
-void idt_setup();
+void idt_setup(void);
 void idt_set_gate(unsigned char num, void(*func)(), unsigned char flags);
 
 #endif

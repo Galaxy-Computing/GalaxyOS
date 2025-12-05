@@ -95,7 +95,7 @@ int ps2_send_data_port2(char data) {
     return 1;
 }
 
-void ps2_init() {
+void ps2_init(void) {
     // TODO: Once we have ACPI, actually check if the controller exists rather than assuming it does
 
     // Disable ports

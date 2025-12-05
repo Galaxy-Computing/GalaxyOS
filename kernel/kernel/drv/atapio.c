@@ -1,6 +1,8 @@
 #include <kernel/ata.h>
 #include <kernel/io.h>
 #include <kernel/klog.h>
+#include <kernel/tty.h>
+#include <stdio.h>
 
 // this driver should not be used after boot
 
@@ -38,22 +40,42 @@ void atapio_identify(unsigned short bus, char select, struct ata_device *device)
         unsigned lbahi = inb(bus + 5);
         if ((lbamid == 0x14) && (lbahi == 0xEB)) {
             device->type = 2; // ATAPI
-            log_info("[ATAPIO] Detected ATAPI device.");
+            terminal_setfgcolor(VGA_COLOR_LIGHT_MAGENTA);
+	        printf("[");
+	        terminal_setfgcolor(VGA_COLOR_LIGHT_BLUE);
+	        printf("INFO");
+	        terminal_setfgcolor(VGA_COLOR_LIGHT_MAGENTA);
+	        printf("] [ATAPIO] Detected ATAPI device in 0x%x:0x%x\n",bus,select);
             return;
         }
         if ((lbamid == 0x3c) && (lbahi == 0xc3)) {
             device->type = 3; // SATA
-            log_info("[ATAPIO] Detected SATA device.");
+            terminal_setfgcolor(VGA_COLOR_LIGHT_MAGENTA);
+	        printf("[");
+	        terminal_setfgcolor(VGA_COLOR_LIGHT_BLUE);
+	        printf("INFO");
+	        terminal_setfgcolor(VGA_COLOR_LIGHT_MAGENTA);
+	        printf("] [ATAPIO] Detected SATA device in 0x%x:0x%x\n",bus,select);
             return;
         }
         if ((lbamid == 0x69) && (lbahi == 0x96)) {
             device->type = 4; // SATAPI
-            log_info("[ATAPIO] Detected SATAPI device.");
+            terminal_setfgcolor(VGA_COLOR_LIGHT_MAGENTA);
+	        printf("[");
+	        terminal_setfgcolor(VGA_COLOR_LIGHT_BLUE);
+	        printf("INFO");
+	        terminal_setfgcolor(VGA_COLOR_LIGHT_MAGENTA);
+	        printf("] [ATAPIO] Detected SATAPI device in 0x%x:0x%x\n",bus,select);
             return;
         }
         if ((lbamid == 0) && (lbahi == 0)) {
             device->type = 1; // ATA
-            log_info("[ATAPIO] Detected ATA device.");
+            terminal_setfgcolor(VGA_COLOR_LIGHT_MAGENTA);
+	        printf("[");
+	        terminal_setfgcolor(VGA_COLOR_LIGHT_BLUE);
+	        printf("INFO");
+	        terminal_setfgcolor(VGA_COLOR_LIGHT_MAGENTA);
+	        printf("] [ATAPIO] Detected ATA device in %x:%x\n",bus,select);
             unsigned status = inb(bus + 7);
             while ((status & 9) == 0) { status = inb(bus + 7); }
             if ((status & 1) == 0) {
@@ -66,7 +88,7 @@ void atapio_identify(unsigned short bus, char select, struct ata_device *device)
     }
 }
 
-void atapio_detect_disks() {
+void atapio_detect_disks(void) {
     if (inb(0x1F7) == 0xFF) { // primary
         // no disks here
     } else {

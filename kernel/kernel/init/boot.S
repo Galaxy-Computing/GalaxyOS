@@ -23,24 +23,32 @@ stack_top:
 # modules there. This lets the bootloader know it must avoid the addresses.
 .section .bss, "aw", @nobits
 	.align 4096
-boot_page_directory:
-	.skip 4096
+page_table:
+	.skip 3145728
 boot_page_table1:
 	.skip 4096
-# Further page tables may be required if the kernel grows beyond 3 MiB.
+boot_page_table2:
+	.skip 4096
+boot_page_table3:
+	.skip 1036288 # 1mb - 4096*3
+boot_page_directory:
+	.skip 4096
 
-# Will need this for multitasking later
-#task_state_segment:
-#	.word 0xFFFF  # Limit 0-15
-#	.word 0       # Base 0-15
-#	.byte 0, 0x89 # Base 16-23, Access Byte
-#	.byte 0xF0, 0 # Limit 16-19 + Flags, Base 24-31
+# Further page tables may be required if the kernel grows beyond 3 MiB.
 
 # The kernel entry point.
 .section .multiboot.text, "a"
 .global _start
 .type _start, @function
 _start:
+
+	# Initialize the page tables to 0.
+	mov $4194304, %ecx
+	movl $(page_table - 0xC0000000), %edi
+zero_loop:
+    stosb
+    loop zero_loop
+
 	# Physical address of boot_page_table1.
 	# TODO: I recall seeing some assembly that used a macro to do the
 	#       conversions to and from physical. Maybe this should be done in this
@@ -51,15 +59,14 @@ _start:
 	#       1 MiB as it can be generally useful, and there's no need to
 	#       specially map the VGA buffer.
 	movl $0, %esi
-	# Map 1023 pages. The 1024th will be the VGA text buffer.
-	movl $1023, %ecx
+	# Map 3072 pages.
+	movl $3072, %ecx
 
 1:
-	# Only map the kernel.
-	cmpl $_kernel_start, %esi
-	jl 2f
-	cmpl $(_kernel_end - 0xC0000000), %esi
-	jge 3f
+	#cmpl $_kernel_start, %esi
+	#jl 2f
+	#cmpl $(_kernel_end - 0xC0000000), %esi
+	#jge 3f
 
 	# Map physical address as "present, writable". Note that this maps
 	# .text and .rodata as writable. Mind security and map them as non-writable.
@@ -76,19 +83,26 @@ _start:
 	loop 1b
 
 3:
-	# Map VGA video memory to 0xC03FF000 as "present, writable".
-	movl $(0x000B8000 | 0x003), boot_page_table1 - 0xC0000000 + 1023 * 4
+	# Map VGA video memory to 0xC0BFF000 as "present, writable".
+	movl $(0x000B8000 | 0x003), boot_page_table3 - 0xC0000000 + 1023 * 4
 
 	# The page table is used at both page directory entry 0 (virtually from 0x0
-	# to 0x3FFFFF) (thus identity mapping the kernel) and page directory entry
-	# 768 (virtually from 0xC0000000 to 0xC03FFFFF) (thus mapping it in the
+	# to 0xBFFFFF) (thus identity mapping the kernel) and page directory entry
+	# 768 (virtually from 0xC0000000 to 0xC0BFFFFF) (thus mapping it in the
 	# higher half). The kernel is identity mapped because enabling paging does
 	# not change the next instruction, which continues to be physical. The CPU
 	# would instead page fault if there was no identity mapping.
 
-	# Map the page table to both virtual addresses 0x00000000 and 0xC0000000.
-	movl $(boot_page_table1 - 0xC0000000 + 0x003), boot_page_directory - 0xC0000000 + 0
-	movl $(boot_page_table1 - 0xC0000000 + 0x003), boot_page_directory - 0xC0000000 + 768 * 4
+	# Map the page tables to both virtual addresses 0x00000000 and 0xC0000000.
+	movl $(boot_page_table1 - 0xC0000000 + 0x007), boot_page_directory - 0xC0000000 + 0
+	movl $(boot_page_table1 - 0xC0000000 + 0x007), boot_page_directory - 0xC0000000 + 768 * 4
+	movl $(boot_page_table2 - 0xC0000000 + 0x007), boot_page_directory - 0xC0000000 + 4
+	movl $(boot_page_table2 - 0xC0000000 + 0x007), boot_page_directory - 0xC0000000 + 769 * 4
+	movl $(boot_page_table3 - 0xC0000000 + 0x007), boot_page_directory - 0xC0000000 + 8
+	movl $(boot_page_table3 - 0xC0000000 + 0x007), boot_page_directory - 0xC0000000 + 770 * 4
+
+	# Map the page tables and directory to 0xFFC00000.
+	movl $(boot_page_directory - 0xC0000000 + 0x003), boot_page_directory - 0xC0000000 + 1023 * 4
 
 	# Set cr3 to the address of the boot_page_directory.
 	movl $(boot_page_directory - 0xC0000000), %ecx
@@ -110,6 +124,8 @@ _start:
 
 	# Unmap the identity mapping as it is now unnecessary. 
 	movl $0, boot_page_directory + 0
+	movl $0, boot_page_directory + 4
+	movl $0, boot_page_directory + 8
 
 	# Reload crc3 to force a TLB flush so the changes to take effect.
 	movl %cr3, %ecx
@@ -118,6 +134,13 @@ _start:
 	# Set up the stack.
 	mov $stack_top, %esp
 
+	# Push the multiboot arguments onto the stack.
+	push $(page_table - 0xC0000000)
+	push %eax # Magic (should be 0x2BADBOO2)
+	push %ebx # Address of the multiboot info
+
+	call _init
+
 	# Enter the high-level kernel.
 	call kernel_main
 
@@ -125,6 +148,7 @@ _start:
 halt:	
 	# Infinite loop if the system has nothing more to do.
 	cli
+	call _fini
 	hlt
 	jmp 1b
 

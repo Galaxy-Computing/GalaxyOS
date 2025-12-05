@@ -11,6 +11,6 @@ struct ata_device {
 
 extern struct ata_device atadevices[4];
 
-void atapio_detect_disks();
+void atapio_detect_disks(void);
 
 #endif

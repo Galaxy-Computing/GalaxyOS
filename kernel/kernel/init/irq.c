@@ -20,24 +20,20 @@ extern void irq13();
 extern void irq14();
 extern void irq15();
 
-void *irq_routines[16] =
-{
+void *irq_routines[16] = {
     0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0
 };
 
-void irq_install_handler(int irq, void (*handler)(struct regs *r))
-{
+void irq_install_handler(int irq, void (*handler)(struct regs *r)) {
     irq_routines[irq] = handler;
 }
 
-void irq_uninstall_handler(int irq)
-{
+void irq_uninstall_handler(int irq) {
     irq_routines[irq] = 0;
 }
 
-void irq_remap(void)
-{
+void irq_remap(void) {
     outb(0x20, 0x11);
     io_wait();
     outb(0xA0, 0x11);
@@ -60,8 +56,7 @@ void irq_remap(void)
     io_wait();
 }
 
-void irq_install()
-{
+void irq_install(void) {
     irq_remap();
 
     idt_set_gate(32, &irq0, 0x8E);
@@ -84,8 +79,7 @@ void irq_install()
     asm("sti");
 }
 
-void irq_handler(struct regs *r)
-{
+void irq_handler(struct regs *r) {
     /* This is a blank function pointer */
     void (*handler)(struct regs *r);
 

@@ -14,8 +14,8 @@
 extern int port1_device;
 extern int port2_device;
 
-void ps2_init();
-int ps2_recieve_data();
+void ps2_init(void);
+int ps2_recieve_data(void);
 int ps2_send_data(char data);
 
 #endif
