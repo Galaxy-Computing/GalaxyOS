@@ -4,7 +4,7 @@
 #include <string.h>
 
 #include <kernel/tty.h>
-
+#include <kernel/io.h>
 #include <kernel/vga.h>
 
 static const size_t VGA_WIDTH = 80;
@@ -18,6 +18,28 @@ static enum vga_color terminal_fg;
 static enum vga_color terminal_bg;
 static uint16_t* terminal_buffer;
 
+void terminal_enable_cursor(uint8_t cursor_start, uint8_t cursor_end) {
+	outb(0x3D4, 0x0A);
+	outb(0x3D5, (inb(0x3D5) & 0xC0) | cursor_start);
+
+	outb(0x3D4, 0x0B);
+	outb(0x3D5, (inb(0x3D5) & 0xE0) | cursor_end);
+}
+
+void terminal_update_cursor(int x, int y) {
+	uint16_t pos = y * VGA_WIDTH + x;
+
+	outb(0x3D4, 0x0F);
+	outb(0x3D5, (uint8_t) (pos & 0xFF));
+	outb(0x3D4, 0x0E);
+	outb(0x3D5, (uint8_t) ((pos >> 8) & 0xFF));
+}
+
+void terminal_disable_cursor(void) {
+	outb(0x3D4, 0x0A);
+	outb(0x3D5, 0x20);
+}
+
 void terminal_initialize(void) {
 	terminal_row = 0;
 	terminal_column = 0;
@@ -25,6 +47,7 @@ void terminal_initialize(void) {
 	terminal_bg = VGA_COLOR_BLACK;
 	terminal_color = vga_entry_color(VGA_COLOR_LIGHT_GREY, VGA_COLOR_BLACK);
 	terminal_buffer = VGA_MEMORY;
+	terminal_disable_cursor();
 	for (size_t y = 0; y < VGA_HEIGHT; y++) {
 		for (size_t x = 0; x < VGA_WIDTH; x++) {
 			const size_t index = y * VGA_WIDTH + x;
@@ -73,4 +96,15 @@ void terminal_write(const char* data, size_t size) {
 
 void terminal_writestring(const char* data) {
 	terminal_write(data, strlen(data));
+}
+
+void terminal_clear(void) {
+	for (size_t y = 0; y < VGA_HEIGHT; y++) {
+		for (size_t x = 0; x < VGA_WIDTH; x++) {
+			const size_t index = y * VGA_WIDTH + x;
+			terminal_buffer[index] = vga_entry(' ', terminal_color);
+		}
+	}
+	terminal_row = 0;
+	terminal_column = 0;
 }

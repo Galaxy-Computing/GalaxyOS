@@ -5,6 +5,7 @@
 #include <kernel/tty.h>
 #include <kernel/vga.h>
 #include <kernel/klog.h>
+#include <kernel/exception.h>
 
 #define PAGE_SIZE 0x1000
 
@@ -30,8 +31,7 @@ address_t pmm_alloc_page(void) {
 
 	if(!pmem_stack_top) {
 		/* seems we couldn't free any */
-		//panic("Out of physical memory."); todo: actually implement this function
-		halt();
+		panic("Out of physical memory");
   	}
 
   	return pmem_stack[--pmem_stack_top];

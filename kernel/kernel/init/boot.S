@@ -148,7 +148,7 @@ zero_loop:
 halt:	
 	# Infinite loop if the system has nothing more to do.
 	cli
-	call _fini
+	# call _fini
 	hlt
 	jmp 1b
 

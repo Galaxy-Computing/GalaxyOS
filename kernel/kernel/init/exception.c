@@ -1,5 +1,8 @@
 #include <kernel/exception.h>
 #include <kernel/idt.h>
+#include <kernel/vga.h>
+#include <kernel/tty.h>
+#include <kernel/kernel.h>
 #include <stdio.h>
 
 extern void isr_0(void);
@@ -54,9 +57,19 @@ void isrs_install(void) {
     idt_set_gate(30, &isr_30, 0x8F);
 }
 
+void panic(char *message) {
+    terminal_setbgcolor(VGA_COLOR_RED);
+    terminal_setfgcolor(VGA_COLOR_WHITE);
+    terminal_clear();
+    printf("KERNEL PANIC\n");
+    printf("Version: %s\n", K_VERSION);
+    printf(message);
+    halt();
+}
+
 void exception_handle(struct regs *r) {
     if (r->int_no < 32) {
-        printf("Halt! Exception occurred\n");
-        halt();
+        panic("CPU exception occurred");
     }
 }
+
