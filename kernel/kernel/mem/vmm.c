@@ -1,6 +1,24 @@
+// Virtual Memory Manager (vmm.c)
+// Copyright (C) 2025 Skye310 (Galaxy Computing)
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+
 #include <stdint.h>
 #include <kernel/pmm.h>
 #include <kernel/vmm.h>
+#include <kernel/exception.h>
 #include <stddef.h>
 
 #define PAGE_DIRECTORY_ADDR 0xFFFFF000
@@ -67,7 +85,7 @@ void *vmm_map_pages_k(address_t *pages, int pagecount) {
         }
         end_mapped_kmemory += PAGE_SIZE;
         if (end_mapped_kmemory >= 0xFFC00000) { // we overflowed into our page directory, out of virtual memory
-            return NULL;
+            panic("Out of virtual memory");
         }
     }
     return startblock;

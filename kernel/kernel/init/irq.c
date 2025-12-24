@@ -1,3 +1,19 @@
+// IRQ Initalizer/Routines (irq.c)
+// Copyright (C) 2025 Skye310 (Galaxy Computing)
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 #include <kernel/irq.h>
 #include <kernel/idt.h>
 #include <kernel/io.h>
@@ -76,7 +92,7 @@ void irq_install(void) {
     idt_set_gate(46, &irq14, 0x8E);
     idt_set_gate(47, &irq15, 0x8E);
     
-    asm("sti");
+    //asm("sti");
 }
 
 void irq_handler(struct regs *r) {

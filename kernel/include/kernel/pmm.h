@@ -10,5 +10,6 @@ address_t pmm_available(void);
 address_t pmm_alloc_page(void);
 void pmm_free_page(address_t paddr);
 void pmm_init(multiboot_info_t* mbd);
+void pmm_log(void);
 
 #endif

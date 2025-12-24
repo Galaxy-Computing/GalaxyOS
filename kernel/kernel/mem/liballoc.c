@@ -1,4 +1,5 @@
 #include <kernel/liballoc.h>
+#include <kernel/exception.h>
 
 /**  Durand's Amazing Super Duper Memory functions.  */
 
@@ -579,16 +580,9 @@ void *PREFIX(malloc)(size_t req_size)
 	liballoc_dump();
 	//FLUSH();
 	#endif
-	return NULL;
+	panic("Out of physical memory");
+	__builtin_unreachable(); // this is to shut up the compiler
 }
-
-
-
-
-
-
-
-
 
 void PREFIX(free)(void *ptr)
 {
