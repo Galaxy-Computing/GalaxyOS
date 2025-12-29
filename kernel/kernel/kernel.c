@@ -47,7 +47,6 @@ void kernel_main(multiboot_info_t* mbd, unsigned int magic, unsigned int pagetab
 
 	if (init_fpu()) {
 		panic("CPU not supported");
-		return;
 	}
 	log_ok("FPU initialized");
 	

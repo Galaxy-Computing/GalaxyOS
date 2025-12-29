@@ -14,6 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+#include <kernel/devcfg.h>
+#ifdef VGATEXT
+
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
@@ -124,3 +127,5 @@ void terminal_clear(void) {
 	terminal_row = 0;
 	terminal_column = 0;
 }
+
+#endif

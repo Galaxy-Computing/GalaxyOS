@@ -15,6 +15,7 @@ struct device {
     uint32_t id;
     uint8_t k_id;
     uint8_t privilege;
+    uint32_t pid; // this doesn't matter for kernel devices
     uint8_t type;
     char* name;
 };

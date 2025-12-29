@@ -14,6 +14,10 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+#include <kernel/devcfg.h>
+#ifdef PS2
+#ifdef PS2KB
+
 #include <kernel/irq.h>
 #include <kernel/idt.h>
 #include <kernel/ps2.h>
@@ -86,3 +90,6 @@ void ps2kb_init() {
     if (port2_device == PS2_DEVICE_KEYBOARD) irq_install_handler(12, &ps2kb_handler);
     log_ok("[PS2KB] Installed interrupt handlers.");
 }
+
+#endif
+#endif

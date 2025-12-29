@@ -14,6 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+#include <kernel/devcfg.h>
+#ifdef PS2
+
 #include <kernel/ps2.h>
 #include <kernel/io.h>
 #include <kernel/exception.h>
@@ -269,3 +272,5 @@ void ps2_init(void) {
         }
     }
 }
+
+#endif

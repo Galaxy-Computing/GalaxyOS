@@ -14,6 +14,9 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+#include <kernel/devcfg.h>
+#ifdef ATAPIO
+
 #include <kernel/ata.h>
 #include <kernel/io.h>
 #include <kernel/klog.h>
@@ -140,3 +143,5 @@ char atapio_readstatus(unsigned short bus, char select) {
 
     return inb(bus + 7);
 }
+
+#endif

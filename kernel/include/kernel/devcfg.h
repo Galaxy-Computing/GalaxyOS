@@ -12,6 +12,7 @@
 #define VFS     3 // Virtual File System
 #define RDISK   4 // RAM Disk
 #define ATAPIO  5 // ATAPIO interface
+#define VFAT    7 // VFAT FS driver
 
 // TTY drivers
 #define VGATEXT 6 // VGA text terminal
@@ -35,11 +36,15 @@
 #endif
 
 #ifdef RDISK
-//#include <kernel/rdisk.h>
+#include <kernel/rdisk.h>
 #endif
 
 #ifdef ATAPIO
 #include <kernel/ata.h>
+#endif
+
+#ifdef VFAT
+#include <kernel/vfat.h>
 #endif
 
 void devinit(void);

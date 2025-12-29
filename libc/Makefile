@@ -27,6 +27,7 @@ FREEOBJS=\
 stdio/printf.o \
 stdio/putchar.o \
 stdio/puts.o \
+stdio/fopen.o \
 stdlib/abort.o \
 stdlib/atoi.o \
 stdlib/itoa.o \
