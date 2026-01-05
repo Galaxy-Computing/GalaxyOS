@@ -1,5 +1,5 @@
-// VGA Text Mode Driver (tty.c)
-// Copyright (C) 2025 Skye310 (Galaxy Computing)
+// VGA Text Mode Driver (vgatty.c)
+// Copyright (C) 2025-2026 Skye310 (Galaxy Computing)
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -22,7 +22,7 @@
 #include <stdint.h>
 #include <string.h>
 
-#include <kernel/tty.h>
+#include <kernel/vgatty.h>
 #include <kernel/io.h>
 #include <kernel/vga.h>
 

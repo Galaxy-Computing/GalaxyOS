@@ -1,7 +1,7 @@
 .PHONY: build test install clean
 
 build:
-	./build.sh
+	./iso.sh
 
 test:
 	./qemu.sh

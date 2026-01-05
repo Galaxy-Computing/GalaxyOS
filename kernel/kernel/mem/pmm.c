@@ -1,5 +1,5 @@
 // Physical Memory Manager (pmm.c)
-// Copyright (C) 2025 Skye310 (Galaxy Computing)
+// Copyright (C) 2025-2026 Skye310 (Galaxy Computing)
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by

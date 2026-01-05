@@ -8,6 +8,7 @@ mkdir -p isodir/boot/grub
 
 cp sysroot/boot/glxykrnl isodir/boot/glxykrnl
 cat > isodir/boot/grub/grub.cfg << EOF
+set color_normal=white/cyan
 menuentry "GalaxyOS Neptune" {
 	multiboot /boot/glxykrnl
 }

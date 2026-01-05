@@ -1,4 +1,4 @@
-// Process Loader (pload.c)
+// Kernel Terminal Abstraction Driver (term.c)
 // Copyright (C) 2025-2026 Skye310 (Galaxy Computing)
 //
 // This program is free software: you can redistribute it and/or modify
@@ -14,15 +14,24 @@
 // You should have received a copy of the GNU General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-#include <kernel/sched.h>
-#include <kernel/pload.h>
+#include <stddef.h>
+#include <kernel/term.h>
+#include <kernel/devcfg.h>
 
-uint32_t pload_create_process(char* path) {
-    // we need a vfs driver
-    return 0; // fail
+// New code should be added here when a new terminal driver is added, for now we just use the VGATEXT one.
+
+void term_write(const char *str, size_t size) {
+    #ifdef VGATEXT
+    terminal_write(str, size);
+    return;
+    #endif
 }
 
-// Create the special kernel process
-uint32_t pload_create_process_k() {
-    return sched_create_process(0, 0, "glxykrnl");
+size_t term_read(char *buf, size_t size) {
+    size_t bytes_read = 0;
+    #ifdef PS2KB
+    bytes_read += ps2kb_read_chars(buf, size);
+    #endif
+    //if (bytes_read >= size) { return bytes_read; } // this is only needed if we have more than one keyboard driver
+    return bytes_read;
 }

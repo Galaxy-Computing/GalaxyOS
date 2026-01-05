@@ -1,5 +1,5 @@
 // Kernel Boot Logger (klog.c)
-// Copyright (C) 2025 Skye310 (Galaxy Computing)
+// Copyright (C) 2025-2026 Skye310 (Galaxy Computing)
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -48,6 +48,18 @@ void log_fail(const char* message) {
 	printf("[");
 	terminal_setfgcolor(VGA_COLOR_RED);
 	printf("FAIL");
+	terminal_setfgcolor(VGA_COLOR_LIGHT_MAGENTA);
+	printf("] ");
+	printf(message);
+	printf("\n");
+	terminal_setfgcolor(VGA_COLOR_LIGHT_GREY);
+}
+
+void log_warn(const char* message) {
+	terminal_setfgcolor(VGA_COLOR_LIGHT_MAGENTA);
+	printf("[");
+	terminal_setfgcolor(VGA_COLOR_LIGHT_BROWN);
+	printf("WARN");
 	terminal_setfgcolor(VGA_COLOR_LIGHT_MAGENTA);
 	printf("] ");
 	printf(message);

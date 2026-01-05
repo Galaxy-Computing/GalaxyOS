@@ -14,7 +14,7 @@
 #define ATAPIO  5 // ATAPIO interface
 #define VFAT    7 // VFAT FS driver
 
-// TTY drivers
+// TTY drivers (all have KID 6)
 #define VGATEXT 6 // VGA text terminal
 
 // Don't modify anything past this line if you are just changing configuration.

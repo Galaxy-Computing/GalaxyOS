@@ -1,5 +1,5 @@
 // Device Initializer (devinit.c)
-// Copyright (C) 2025 Skye310 (Galaxy Computing)
+// Copyright (C) 2025-2026 Skye310 (Galaxy Computing)
 //
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -53,7 +53,7 @@ void devinit(void) {
     temp.name = "Virtual File System";
     temp.privilege = 0;
     temp.type = DEVICE_INTERNAL;
-    temp.k_id = ATAPIO;
+    temp.k_id = VFS;
     devreg_register_device(&temp);
 	vfs_init();
     #endif
@@ -62,7 +62,7 @@ void devinit(void) {
     temp.name = "RAM Disk Interface";
     temp.privilege = 0;
     temp.type = DEVICE_BLOCK;
-    temp.k_id = ATAPIO;
+    temp.k_id = RDISK;
     devreg_register_device(&temp);
     rdisk_init();
     #endif
@@ -71,7 +71,7 @@ void devinit(void) {
     temp.name = "VFAT FS Driver";
     temp.privilege = 0;
     temp.type = DEVICE_FILESYSTEM;
-    temp.k_id = ATAPIO;
+    temp.k_id = VFAT;
     devreg_register_device(&temp);
     rdisk_init();
     #endif
