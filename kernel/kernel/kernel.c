@@ -32,13 +32,22 @@
 #include <kernel/exception.h>
 #include <kernel/pload.h>
 #include <kernel/sched.h>
+#include <kernel/term.h>
 
 int bootfinished = 0;
 
 void kernel_loop(void) {
-	#ifdef PS2KB
-	ps2kb_loop();
-	#endif
+	// We're in the kernel thread
+	for (;;) {
+		#ifdef PS2KB
+		ps2kb_loop();
+		char printingchar;
+		size_t chars_read = term_read(&printingchar, 1);
+		if (chars_read) {
+			term_write(&printingchar, 1);
+		}
+		#endif
+	}
 }
 
 void kernel_main(multiboot_info_t* mbd, unsigned int magic, unsigned int pagetable) {
@@ -71,27 +80,24 @@ void kernel_main(multiboot_info_t* mbd, unsigned int magic, unsigned int pagetab
 	devinit();
 	
 	sched_init();
-	pload_create_process_k();
+	sched_create_thread(pload_create_process_k(), (uint32_t)&kernel_loop);
+	// this is sort of a nasty hack
+	sched_pick_next();
+	sched_pick_next();
 
 	terminal_setfgcolor(VGA_COLOR_LIGHT_GREY);
 	printf("Welcome to %s\n",K_VERSION);
-	
-	/*uint32_t* testalloc = (uint32_t*)kmalloc(sizeof(uint32_t));
-	if (testalloc == NULL) {
-		// we have a problem
-		panic("Test allocate failed");
-	} else {
-		*testalloc = 1;
-		printf("Test allocate: %i\n", *testalloc);
-		printf("Address: 0x%x\n", testalloc);
-	}
-	printf("Memory free: %ikb\n", pmm_available() * 4);
-	kfree((void*)testalloc); // free it, we don't need it anymore*/
 
 	// We would start our init process here if we had it
 
 	bootfinished = 1;
 	asm("sti");
-	while (1) { kernel_loop(); } // spin
+	/* 
+	 * since the scheduler thinks that we are the kernel thread now due to the above pick_next calls, 
+	 * we need to hlt to wait for the proper context switch to set the stack and go to our entry point
+	 * this kind of sucks but we can't do much about this
+	 */
+	asm("hlt");
+	kernel_loop();
 }
 

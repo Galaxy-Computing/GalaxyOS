@@ -176,10 +176,10 @@ void gdt_setup(void) {
     /* Our NULL descriptor */
     gdt_set_gate_null(0);
 
-    gdt_set_gate(1, 0x9A);
-    gdt_set_gate(2, 0x92);
-    gdt_set_gate(3, 0xFA);
-    gdt_set_gate(4, 0xF2);
+    gdt_set_gate(1, 0x9A); // Kernel code
+    gdt_set_gate(2, 0x92); // Kernel data
+    gdt_set_gate(3, 0xFA); // User code
+    gdt_set_gate(4, 0xF2); // User data
 
     write_tss(&gdt[5]);
 

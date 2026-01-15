@@ -160,6 +160,8 @@ zero_loop:
 	# Enter the high-level kernel.
 	call kernel_main
 
+# TODO: should probably take all the functions here out of boot.S and move them into their own file
+
 .global halt
 halt:	
 	# Infinite loop if the system has nothing more to do.
@@ -212,6 +214,8 @@ hasfpu:
 testword:
 .word 0x55AA
 
+
+# TODO: maybe move the ISR/IRQ stuff to it's own file as well
 .global isr_0
 .global isr_1
 .global isr_2
@@ -375,7 +379,7 @@ isr_30:
 	jmp isr_common_stub
 
 isr_common_stub:
-    pusha
+	pusha
     push %ds
     push %es
     push %fs
@@ -388,7 +392,7 @@ isr_common_stub:
     mov %esp, %eax   # Push us the stack
     push %eax
     mov $exception_handle, %eax
-    call %eax       # A special call, preserves the 'eip' register
+    call *%eax       # A special call, preserves the 'eip' register
     pop %eax
     pop %gs
     pop %fs
@@ -513,10 +517,12 @@ irq15:
 	jmp irq_common_stub
 
 .extern irq_handler
-.extern kernel_loop
+.extern set_thread_stack
+.extern set_kernel_stack
+.extern sched_loop
 
 irq_common_stub:
-    pusha
+	pusha
     push %ds
     push %es
     push %fs
@@ -527,14 +533,27 @@ irq_common_stub:
     mov %ax, %fs
     mov %ax, %gs
     mov %esp, %eax
+	cld
     push %eax
 	mov $irq_handler, %eax
-    call %eax
+    call *%eax
     pop %eax
-    pop %gs
+	mov %esp, %eax
+	push %eax
+	mov $set_thread_stack, %eax
+	call *%eax
+	pop %eax
+	mov $sched_loop, %eax
+	call *%eax                       # After this EAX will contain a pointer to the thread
+	mov %eax, %ebx
+	push (%ebx)
+	mov $set_kernel_stack, %eax
+	call *%eax
+	mov (%ebx), %esp
+	pop %gs
     pop %fs
     pop %es
     pop %ds
-    popa
-    add $8, %esp
+	popa
+	add $8, %esp
 	iret

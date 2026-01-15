@@ -82,6 +82,7 @@ void ps2kb_send_command(unsigned char byte) {
     if (((command_queue_end + 1) % COMMAND_QUEUE_SIZE) == command_queue_start) {
         // the buffer is full, we can't really continue
         log_warn("[PS2KB] Command queue is full. The command will be skipped.");
+        return;
     }
     command_queue[command_queue_end++] = byte;
     command_queue_end = command_queue_end % COMMAND_QUEUE_SIZE;
@@ -118,7 +119,7 @@ void ps2kb_handler(struct regs *r) {
             ps2kb_resend_command();
             return;
         }
-        if (state) {
+        if (!state) {
             if (key == 0xF0) {
                 state = 1;
             } else if (key == 0xE0) {

@@ -17,6 +17,7 @@
 #include <kernel/liballoc.h>
 #include <kernel/exception.h>
 #include <kernel/sched.h>
+#include <kernel/kernel.h>
 #include <stdint.h>
 #include <string.h>
 
@@ -54,11 +55,11 @@ struct process {
 };
 
 struct thread {
-    uint32_t eip;
-    uint32_t esp;
+    uint32_t *esp_k;
+    uint8_t privilege_level;
     uint32_t pid;
     uint8_t state;
-};
+} __attribute__((packed)); // this is because this will be accessed from asm
 
 struct process **processes;
 uint32_t processes_size;
@@ -70,15 +71,19 @@ uint32_t threads_size;
 
 uint32_t *max_queue;
 uint32_t max_queue_start;
+uint32_t max_queue_loc;
 uint32_t max_queue_end;
 uint32_t *high_queue;
 uint32_t high_queue_start;
+uint32_t high_queue_loc;
 uint32_t high_queue_end;
 uint32_t *med_queue;
 uint32_t med_queue_start;
+uint32_t med_queue_loc;
 uint32_t med_queue_end;
 uint32_t *low_queue;
 uint32_t low_queue_start;
+uint32_t low_queue_loc;
 uint32_t low_queue_end;
 
 uint32_t currentpid;
@@ -86,8 +91,20 @@ uint32_t currenttid;
 
 uint32_t currentthreadi;
 
+uint32_t get_eflags(void) {
+    uint32_t flags;
+    asm volatile (
+        "pushfl\n\t"
+        "popl %0\n\t"
+        : "=r" (flags) // Output operand: the 'flags' variable receives the value
+        :              // No input operands
+        : "memory"     // Clobber list: indicates that memory might be changed
+    );
+    return flags;
+}
+
 uint32_t sched_create_thread(uint32_t ownerpid, uint32_t entrypoint) {
-    asm("cli");
+    if (bootfinished) { asm("cli"); }
     
     if (last_tid-1 >= MAX_THREADS) {
         panic("Out of thread ids"); // todo: reuse dead ids
@@ -99,12 +116,28 @@ uint32_t sched_create_thread(uint32_t ownerpid, uint32_t entrypoint) {
 
     threads[last_tid-1] = (struct thread*)kmalloc(sizeof(struct thread));
     threads[last_tid-1]->pid = ownerpid;
-    threads[last_tid-1]->eip = entrypoint;
 
     // create the stack
+    threads[last_tid-1]->esp_k = (uint32_t*)((uint32_t)kmalloc(4096*4)+4096*4); // this is for context switches and kernel level threads
+
     if (processes[ownerpid-1]->privilege_level == 0) {
-        // allocate it in kernel space
-        threads[last_tid-1]->esp = (uint32_t)kmalloc(4096*4);
+        // set up the stack frame that the irq routine expects
+        threads[last_tid-1]->esp_k -= 17;
+        threads[last_tid-1]->esp_k[0] = 0x10;
+        threads[last_tid-1]->esp_k[1] = 0x10;
+        threads[last_tid-1]->esp_k[2] = 0x10;
+        threads[last_tid-1]->esp_k[3] = 0x10;
+        threads[last_tid-1]->esp_k[4] = 0;
+        threads[last_tid-1]->esp_k[5] = 0;
+        threads[last_tid-1]->esp_k[6] = 0;
+        threads[last_tid-1]->esp_k[7] = (uint32_t)threads[last_tid-1]->esp_k+14;
+        threads[last_tid-1]->esp_k[8] = 0;
+        threads[last_tid-1]->esp_k[9] = 0;
+        threads[last_tid-1]->esp_k[10] = 0;
+        threads[last_tid-1]->esp_k[11] = last_tid-1;
+        threads[last_tid-1]->esp_k[14] = entrypoint;
+        threads[last_tid-1]->esp_k[15] = 0x08;
+        threads[last_tid-1]->esp_k[16] = get_eflags();
     } else {
         panic("User space not implemented");
     }
@@ -116,13 +149,13 @@ uint32_t sched_create_thread(uint32_t ownerpid, uint32_t entrypoint) {
     }
     processes[ownerpid-1]->tids[processes[ownerpid-1]->threadcount++] = last_tid-1;
     
-    asm("sti");
+    if (bootfinished) { asm("sti"); }
 
     return last_tid++;
 }
 
 uint32_t sched_create_process(uint8_t privilege, uint8_t priority, char* name) {
-    asm("cli");
+    if (bootfinished) { asm("cli"); }
     if (last_pid-1 >= MAX_PROCESSES) {
         panic("Out of process ids"); // todo: reuse dead ids
     }
@@ -169,41 +202,38 @@ uint32_t sched_create_process(uint8_t privilege, uint8_t priority, char* name) {
             break;
     }
 
-    // create initial thread
-    sched_create_thread(last_pid, processes[last_pid-1]->entrypoint);
-
-    asm("sti");
+    if (bootfinished) { asm("sti"); }
     return last_pid++;
 }
 
 uint32_t sched_find_next_pid(void) {
-    if (max_queue_end-max_queue_start > 0) {
-        return max_queue[max_queue_start];
+    if (max_queue_end-max_queue_loc > 0) {
+        return max_queue[max_queue_loc];
     }
-    if (high_queue_end-high_queue_start > 0) {
-        return high_queue[high_queue_start];
+    if (high_queue_end-high_queue_loc > 0) {
+        return high_queue[high_queue_loc];
     }
-    if (med_queue_end-med_queue_start > 0) {
-        return med_queue[med_queue_start];
+    if (med_queue_end-med_queue_loc > 0) {
+        return med_queue[med_queue_loc];
     }
-    if (low_queue_end-low_queue_start > 0) {
-        return low_queue[low_queue_start];
+    if (low_queue_end-low_queue_loc > 0) {
+        return low_queue[low_queue_loc];
     }
     return 0; // no processes exist
 }
 
 uint32_t sched_pop_next_pid(void) {
-    if (max_queue_end-max_queue_start > 0) {
-        return max_queue[max_queue_start++];
+    if (max_queue_end-max_queue_loc > 0) {
+        return max_queue[max_queue_loc++];
     }
-    if (high_queue_end-high_queue_start > 0) {
-        return high_queue[high_queue_start++];
+    if (high_queue_end-high_queue_loc > 0) {
+        return high_queue[high_queue_loc++];
     }
-    if (med_queue_end-med_queue_start > 0) {
-        return med_queue[med_queue_start++];
+    if (med_queue_end-med_queue_loc > 0) {
+        return med_queue[med_queue_loc++];
     }
-    if (low_queue_end-low_queue_start > 0) {
-        return low_queue[low_queue_start++];
+    if (low_queue_end-low_queue_loc > 0) {
+        return low_queue[low_queue_loc++];
     }
     return 0; // no processes exist
 }
@@ -211,15 +241,24 @@ uint32_t sched_pop_next_pid(void) {
 void sched_pick_next(void) {
     uint32_t nextpid = sched_pop_next_pid();
     if (!nextpid) {
-        // we have nothing to do
-        return;
+        // refresh the queue
+        max_queue_loc = max_queue_start;
+        high_queue_loc = high_queue_start;
+        med_queue_loc = med_queue_start;
+        low_queue_loc = low_queue_start;
+        nextpid = sched_pop_next_pid();
+        if (!nextpid) {
+            // give up
+            panic("No processes left in queue");
+        }
     }
-    currentpid = nextpid;
+    currentpid = 0;
     switch (processes[nextpid-1]->state) {
         case PROCESS_STATE_RUNNING:
             if (processes[nextpid-1]->threadcount > 0) {
                 currentthreadi = 0;
             }
+            currentpid = nextpid;
             break;
         case PROCESS_STATE_SUSPENDED:
             break;
@@ -238,18 +277,17 @@ void sched_pick_next(void) {
     }
 }
 
-void sched_loop(void) {
-    if (currentpid) {
-        if (currentthreadi < processes[currentpid-1]->threadcount) {
-            
-            if (processes[currentpid-1]->privilege_level) {
-                panic("User space process not implemented");
-            }
-            // relatively menacing looking line
-            //jump_to_address(threads[processes[currentpid-1]->tids[currentthreadi]]->eip, threads[processes[currentpid-1]->tids[currentthreadi++]]->esp);
-        }
+struct thread *sched_loop(void) {
+    while (!currentpid) {
+        sched_pick_next();
     }
-    sched_pick_next();
+    while (currentthreadi > processes[currentpid-1]->threadcount) {
+        sched_pick_next();
+    } 
+    if (processes[currentpid-1]->privilege_level) {
+        panic("User space process not implemented");
+    }
+    return threads[processes[currentpid-1]->tids[currentthreadi++]];
 }
 
 void sched_init(void) {
@@ -258,15 +296,19 @@ void sched_init(void) {
     threads = (struct thread**)kmalloc(sizeof(struct thread) * DEFAULT_THREAD_LIST_SIZE);
     max_queue = (uint32_t*)kmalloc(sizeof(uint32_t) * DEFAULT_PROCESS_LIST_SIZE);
     max_queue_start = 0;
+    max_queue_loc = 0;
     max_queue_end = 0;
     high_queue = (uint32_t*)kmalloc(sizeof(uint32_t) * DEFAULT_PROCESS_LIST_SIZE);
     high_queue_start = 0;
+    high_queue_loc = 0;
     high_queue_end = 0;
     med_queue = (uint32_t*)kmalloc(sizeof(uint32_t) * DEFAULT_PROCESS_LIST_SIZE);
     med_queue_start = 0;
+    med_queue_loc = 0;
     med_queue_end = 0;
     low_queue = (uint32_t*)kmalloc(sizeof(uint32_t) * DEFAULT_PROCESS_LIST_SIZE);
     low_queue_start = 0;
+    low_queue_loc = 0;
     low_queue_end = 0;
 
     processes_size = DEFAULT_PROCESS_LIST_SIZE;
@@ -278,4 +320,8 @@ void sched_init(void) {
     currenttid = 0;
 
     // set up our irq handler here
+}
+
+void set_thread_stack(uint32_t *esp_k) {
+    threads[processes[currentpid-1]->tids[currentthreadi]]->esp_k = esp_k;
 }

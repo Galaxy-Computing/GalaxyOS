@@ -18,16 +18,21 @@
 #include <kernel/exception.h>
 #include <kernel/vmm.h>
 #include <kernel/pmm.h>
+#include <kernel/kernel.h>
 
 #define PAGE_SIZE 0x1000
 
 int liballoc_lock(void) {
-    asm("cli");
+    if (bootfinished) {
+        asm("cli");
+    }
     return 0;
 }
 
 int liballoc_unlock(void) {
-    asm("sti");
+    if (bootfinished) {
+        asm("sti");
+    }
     return 0;
 }
 
