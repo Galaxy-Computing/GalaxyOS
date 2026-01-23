@@ -10,9 +10,9 @@ int atoi(char *s) {
     }
     
     while((*s >= '0')&&(*s <= '9')) {
-      acum = acum * 10;
-      acum = acum + (*s - 48);
-      s++;
+        acum = acum * 10;
+        acum = acum + (*s - 48);
+        s++;
     }
     return (factor * acum);
 }

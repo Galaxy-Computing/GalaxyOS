@@ -34,28 +34,28 @@ static volatile address_t pmem_stack_top;
 
 /* return number of free pages */
 address_t pmm_available(void) {
-	return pmem_stack_top;
+    return pmem_stack_top;
 }
 
 /* allocate a single page */
 address_t pmm_alloc_page(void) {
-	// this code will be needed when we have paging to disk. right now, this is irrelevant since we don't have that ability.
-	/*if(!pmem_stack_top) {
-		//last effort to try to swap out something
-		//vmm_need_pages();
-	}*/
+    // this code will be needed when we have paging to disk. right now, this is irrelevant since we don't have that ability.
+    /*if(!pmem_stack_top) {
+        //last effort to try to swap out something
+        //vmm_need_pages();
+    }*/
 
-	if(!pmem_stack_top) {
-		/* seems we couldn't free any */
-		panic("Out of physical memory");
-  	}
+    if(!pmem_stack_top) {
+        /* seems we couldn't free any */
+        panic("Out of physical memory");
+      }
 
-  	return pmem_stack[--pmem_stack_top];
+      return pmem_stack[--pmem_stack_top];
 }
 
 /* free a single page */
 void pmm_free_page(address_t paddr) {
-	pmem_stack[pmem_stack_top++] = paddr;
+    pmem_stack[pmem_stack_top++] = paddr;
 }
 
 void pmm_init(multiboot_info_t* mbd) {
@@ -71,21 +71,21 @@ void pmm_init(multiboot_info_t* mbd) {
 
         if(mmmt->type == MULTIBOOT_MEMORY_AVAILABLE) {
             // we have a memory block
-			unsigned int j;
-			for (j = 0; j < mmmt->len_low; j += PAGE_SIZE) {
-				if ((mmmt->addr_low + j) > (kernel_end - 0xC0000000)) {
-					pmem_stack[pmem_stack_top++] = mmmt->addr_low + j;
-				}
-			}
+            unsigned int j;
+            for (j = 0; j < mmmt->len_low; j += PAGE_SIZE) {
+                if ((mmmt->addr_low + j) > (kernel_end - 0xC0000000)) {
+                    pmem_stack[pmem_stack_top++] = mmmt->addr_low + j;
+                }
+            }
         }
     }
 }
 
 void pmm_log(void) {
-	terminal_setfgcolor(VGA_COLOR_LIGHT_MAGENTA);
-	printf("[");
-	terminal_setfgcolor(VGA_COLOR_LIGHT_BLUE);
-	printf("INFO");
-	terminal_setfgcolor(VGA_COLOR_LIGHT_MAGENTA);
-	printf("] [PMM] Detected %iM bytes of memory usable.\n", pmm_available() / 256);
+    terminal_setfgcolor(VGA_COLOR_LIGHT_MAGENTA);
+    printf("[");
+    terminal_setfgcolor(VGA_COLOR_LIGHT_BLUE);
+    printf("INFO");
+    terminal_setfgcolor(VGA_COLOR_LIGHT_MAGENTA);
+    printf("] [PMM] Detected %iM bytes of memory usable.\n", pmm_available() / 256);
 }
