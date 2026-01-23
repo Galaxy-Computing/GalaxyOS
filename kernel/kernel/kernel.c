@@ -37,67 +37,67 @@
 int bootfinished = 0;
 
 void kernel_loop(void) {
-	// We're in the kernel thread
-	for (;;) {
-		#ifdef PS2KB
-		ps2kb_loop();
-		char printingchar;
-		size_t chars_read = term_read(&printingchar, 1);
-		if (chars_read) {
-			term_write(&printingchar, 1);
-		}
-		#endif
-	}
+    // We're in the kernel thread
+    for (;;) {
+        #ifdef PS2KB
+        ps2kb_loop();
+        char printingchar;
+        size_t chars_read = term_read(&printingchar, 1);
+        if (chars_read) {
+            term_write(&printingchar, 1);
+        }
+        #endif
+    }
 }
 
 void kernel_main(multiboot_info_t* mbd, unsigned int magic, unsigned int pagetable) {
-	multiboot_info_t* vmbd = (multiboot_info_t*)((char*)mbd + 0xC0000000); // convert it to a virtual address
+    multiboot_info_t* vmbd = (multiboot_info_t*)((char*)mbd + 0xC0000000); // convert it to a virtual address
 
-	gdt_setup();
-	idt_setup();
-	irq_install();
-	pmm_init(vmbd);
-	vmm_init(pagetable);
+    gdt_setup();
+    idt_setup();
+    irq_install();
+    pmm_init(vmbd);
+    vmm_init(pagetable);
 
-	devinit_init();
-	devinit_tty();
-	log_ok("Terminal initialized");
+    devinit_init();
+    devinit_tty();
+    log_ok("Terminal initialized");
 
-	pmm_log();
-	
-	if (magic != MULTIBOOT_BOOTLOADER_MAGIC) {
-		panic("The OS was not loaded with a multiboot compliant bootloader");
-	}
-	if(!(vmbd->flags >> 6 & 0x1)) {
-		panic("The bootloader did not provide a memory map");
+    pmm_log();
+    
+    if (magic != MULTIBOOT_BOOTLOADER_MAGIC) {
+        panic("The OS was not loaded with a multiboot compliant bootloader");
+    }
+    if(!(vmbd->flags >> 6 & 0x1)) {
+        panic("The bootloader did not provide a memory map");
     }
 
-	if (init_fpu()) {
-		panic("CPU not supported");
-	}
-	log_ok("FPU initialized");
-	
-	devinit();
-	
-	sched_init();
-	sched_create_thread(pload_create_process_k(), (uint32_t)&kernel_loop);
-	// this is sort of a nasty hack
-	sched_pick_next();
-	sched_pick_next();
+    if (init_fpu()) {
+        panic("CPU not supported");
+    }
+    log_ok("FPU initialized");
+    
+    devinit();
+    
+    sched_init();
+    sched_create_thread(pload_create_process_k((uint32_t*)vmm_get_physaddr(0xFFFFF000)), (uint32_t)&kernel_loop);
+    // this is sort of a nasty hack
+    sched_pick_next();
+    sched_pick_next();
 
-	terminal_setfgcolor(VGA_COLOR_LIGHT_GREY);
-	printf("Welcome to %s\n",K_VERSION);
+    terminal_setfgcolor(VGA_COLOR_LIGHT_GREY);
+    printf("Welcome to %s\n",K_VERSION);
 
-	// We would start our init process here if we had it
+    // We would start our init process here if we had it
 
-	bootfinished = 1;
-	asm("sti");
-	/* 
-	 * since the scheduler thinks that we are the kernel thread now due to the above pick_next calls, 
-	 * we need to hlt to wait for the proper context switch to set the stack and go to our entry point
-	 * this kind of sucks but we can't do much about this
-	 */
-	asm("hlt");
-	kernel_loop();
+    bootfinished = 1;
+    asm("sti");
+    /* 
+     * since the scheduler thinks that we are the kernel thread now due to the above pick_next calls, 
+     * we need to hlt to wait for the proper context switch to set the stack and go to our entry point
+     * this kind of sucks but we can't do much about this
+     */
+    asm("hlt");
+    kernel_loop();
 }
 

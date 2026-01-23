@@ -38,17 +38,17 @@ stack_top:
 # are available, as the bootloader might have loaded its multiboot structures or
 # modules there. This lets the bootloader know it must avoid the addresses.
 .section .bss, "aw", @nobits
-	.align 4096
+    .align 4096
 page_table:
-	.skip 3145728
+    .skip 3145728
 boot_page_table1:
-	.skip 4096
+    .skip 4096
 boot_page_table2:
-	.skip 4096
+    .skip 4096
 boot_page_table3:
-	.skip 1036288 # 1mb - 4096*3
+    .skip 1036288 # 1mb - 4096*3
 boot_page_directory:
-	.skip 4096
+    .skip 4096
 
 # Further page tables may be required if the kernel grows beyond 3 MiB.
 
@@ -58,117 +58,117 @@ boot_page_directory:
 .type _start, @function
 _start:
 
-	# Initialize the page tables to 0.
-	mov $4194304, %ecx
-	movl $(page_table - 0xC0000000), %edi
+    # Initialize the page tables to 0.
+    mov $4194304, %ecx
+    movl $(page_table - 0xC0000000), %edi
 zero_loop:
     stosb
     loop zero_loop
 
-	# Physical address of boot_page_table1.
-	# TODO: I recall seeing some assembly that used a macro to do the
-	#       conversions to and from physical. Maybe this should be done in this
-	#       code as well?
-	movl $(boot_page_table1 - 0xC0000000), %edi
-	# First address to map is address 0.
-	# TODO: Start at the first kernel page instead. Alternatively map the first
-	#       1 MiB as it can be generally useful, and there's no need to
-	#       specially map the VGA buffer.
-	movl $0, %esi
-	# Map 3072 pages.
-	movl $3072, %ecx
+    # Physical address of boot_page_table1.
+    # TODO: I recall seeing some assembly that used a macro to do the
+    #       conversions to and from physical. Maybe this should be done in this
+    #       code as well?
+    movl $(boot_page_table1 - 0xC0000000), %edi
+    # First address to map is address 0.
+    # TODO: Start at the first kernel page instead. Alternatively map the first
+    #       1 MiB as it can be generally useful, and there's no need to
+    #       specially map the VGA buffer.
+    movl $0, %esi
+    # Map 3072 pages.
+    movl $3072, %ecx
 
 1:
-	#cmpl $_kernel_start, %esi
-	#jl 2f
-	#cmpl $(_kernel_end - 0xC0000000), %esi
-	#jge 3f
+    #cmpl $_kernel_start, %esi
+    #jl 2f
+    #cmpl $(_kernel_end - 0xC0000000), %esi
+    #jge 3f
 
-	# Map physical address as "present, writable". Note that this maps
-	# .text and .rodata as writable. Mind security and map them as non-writable.
-	movl %esi, %edx
-	orl $0x003, %edx
-	movl %edx, (%edi)
+    # Map physical address as "present, writable". Note that this maps
+    # .text and .rodata as writable. Mind security and map them as non-writable.
+    movl %esi, %edx
+    orl $0x003, %edx
+    movl %edx, (%edi)
 
 2:
-	# Size of page is 4096 bytes.
-	addl $4096, %esi
-	# Size of entries in boot_page_table1 is 4 bytes.
-	addl $4, %edi
-	# Loop to the next entry if we haven't finished.
-	loop 1b
+    # Size of page is 4096 bytes.
+    addl $4096, %esi
+    # Size of entries in boot_page_table1 is 4 bytes.
+    addl $4, %edi
+    # Loop to the next entry if we haven't finished.
+    loop 1b
 
 3:
-	# Map VGA video memory to 0xC0BFF000 as "present, writable".
-	movl $(0x000B8000 | 0x003), boot_page_table3 - 0xC0000000 + 1023 * 4
+    # Map VGA video memory to 0xC0BFF000 as "present, writable".
+    movl $(0x000B8000 | 0x003), boot_page_table3 - 0xC0000000 + 1023 * 4
 
-	# The page table is used at both page directory entry 0 (virtually from 0x0
-	# to 0xBFFFFF) (thus identity mapping the kernel) and page directory entry
-	# 768 (virtually from 0xC0000000 to 0xC0BFFFFF) (thus mapping it in the
-	# higher half). The kernel is identity mapped because enabling paging does
-	# not change the next instruction, which continues to be physical. The CPU
-	# would instead page fault if there was no identity mapping.
+    # The page table is used at both page directory entry 0 (virtually from 0x0
+    # to 0xBFFFFF) (thus identity mapping the kernel) and page directory entry
+    # 768 (virtually from 0xC0000000 to 0xC0BFFFFF) (thus mapping it in the
+    # higher half). The kernel is identity mapped because enabling paging does
+    # not change the next instruction, which continues to be physical. The CPU
+    # would instead page fault if there was no identity mapping.
 
-	# Map the page tables to both virtual addresses 0x00000000 and 0xC0000000.
-	movl $(boot_page_table1 - 0xC0000000 + 0x007), boot_page_directory - 0xC0000000 + 0
-	movl $(boot_page_table1 - 0xC0000000 + 0x007), boot_page_directory - 0xC0000000 + 768 * 4
-	movl $(boot_page_table2 - 0xC0000000 + 0x007), boot_page_directory - 0xC0000000 + 4
-	movl $(boot_page_table2 - 0xC0000000 + 0x007), boot_page_directory - 0xC0000000 + 769 * 4
-	movl $(boot_page_table3 - 0xC0000000 + 0x007), boot_page_directory - 0xC0000000 + 8
-	movl $(boot_page_table3 - 0xC0000000 + 0x007), boot_page_directory - 0xC0000000 + 770 * 4
+    # Map the page tables to both virtual addresses 0x00000000 and 0xC0000000.
+    movl $(boot_page_table1 - 0xC0000000 + 0x007), boot_page_directory - 0xC0000000 + 0
+    movl $(boot_page_table1 - 0xC0000000 + 0x007), boot_page_directory - 0xC0000000 + 768 * 4
+    movl $(boot_page_table2 - 0xC0000000 + 0x007), boot_page_directory - 0xC0000000 + 4
+    movl $(boot_page_table2 - 0xC0000000 + 0x007), boot_page_directory - 0xC0000000 + 769 * 4
+    movl $(boot_page_table3 - 0xC0000000 + 0x007), boot_page_directory - 0xC0000000 + 8
+    movl $(boot_page_table3 - 0xC0000000 + 0x007), boot_page_directory - 0xC0000000 + 770 * 4
 
-	# Map the page tables and directory to 0xFFC00000.
-	movl $(boot_page_directory - 0xC0000000 + 0x003), boot_page_directory - 0xC0000000 + 1023 * 4
+    # Map the page tables and directory to 0xFFC00000.
+    movl $(boot_page_directory - 0xC0000000 + 0x003), boot_page_directory - 0xC0000000 + 1023 * 4
 
-	# Set cr3 to the address of the boot_page_directory.
-	movl $(boot_page_directory - 0xC0000000), %ecx
-	movl %ecx, %cr3
+    # Set cr3 to the address of the boot_page_directory.
+    movl $(boot_page_directory - 0xC0000000), %ecx
+    movl %ecx, %cr3
 
-	# Enable paging and the write-protect bit.
-	movl %cr0, %ecx
-	orl $0x80010000, %ecx
-	movl %ecx, %cr0
+    # Enable paging and the write-protect bit.
+    movl %cr0, %ecx
+    orl $0x80010000, %ecx
+    movl %ecx, %cr0
 
-	# Jump to higher half with an absolute jump. 
-	lea 4f, %ecx
-	jmp *%ecx
+    # Jump to higher half with an absolute jump. 
+    lea 4f, %ecx
+    jmp *%ecx
 
 .section .text
 
 4:
-	# At this point, paging is fully set up and enabled.
+    # At this point, paging is fully set up and enabled.
 
-	# Unmap the identity mapping as it is now unnecessary. 
-	movl $0, boot_page_directory + 0
-	movl $0, boot_page_directory + 4
-	movl $0, boot_page_directory + 8
+    # Unmap the identity mapping as it is now unnecessary. 
+    movl $0, boot_page_directory + 0
+    movl $0, boot_page_directory + 4
+    movl $0, boot_page_directory + 8
 
-	# Reload crc3 to force a TLB flush so the changes to take effect.
-	movl %cr3, %ecx
-	movl %ecx, %cr3
+    # Reload crc3 to force a TLB flush so the changes to take effect.
+    movl %cr3, %ecx
+    movl %ecx, %cr3
 
-	# Set up the stack.
-	mov $stack_top, %esp
+    # Set up the stack.
+    mov $stack_top, %esp
 
-	# Push the multiboot arguments onto the stack.
-	push $(page_table - 0xC0000000)
-	push %eax # Magic (should be 0x2BADBOO2)
-	push %ebx # Address of the multiboot info
+    # Push the multiboot arguments onto the stack.
+    push $(page_table - 0xC0000000)
+    push %eax # Magic (should be 0x2BADBOO2)
+    push %ebx # Address of the multiboot info
 
-	call _init
+    call _init
 
-	# Enter the high-level kernel.
-	call kernel_main
+    # Enter the high-level kernel.
+    call kernel_main
 
 # TODO: should probably take all the functions here out of boot.S and move them into their own file
 
 .global halt
 halt:	
-	# Infinite loop if the system has nothing more to do.
-	cli
-	# call _fini
-	hlt
-	jmp 1b
+    # Infinite loop if the system has nothing more to do.
+    cli
+    # call _fini
+    hlt
+    jmp 1b
 
 .global load_gdt
 load_gdt:
@@ -193,23 +193,23 @@ idt_load:
 
 .global init_fpu
 init_fpu:
-	mov %cr0, %edx
-	and $0xFFFFFFF3, %edx # clear EM and TS
-	mov %edx, %cr0
-	fninit
-	fnstsw (testword)
-	cmpw $0, (testword)
-	jne nofpu
-	jmp hasfpu
+    mov %cr0, %edx
+    and $0xFFFFFFF3, %edx # clear EM and TS
+    mov %edx, %cr0
+    fninit
+    fnstsw (testword)
+    cmpw $0, (testword)
+    jne nofpu
+    jmp hasfpu
 
 nofpu:
-	mov $1, %eax # failure
-	ret
+    mov $1, %eax # failure
+    ret
 
 hasfpu:
-	fninit
-	mov $0, %eax # success
-	ret
+    fninit
+    mov $0, %eax # success
+    ret
 
 testword:
 .word 0x55AA
@@ -244,142 +244,142 @@ testword:
 .extern exception_handle
 
 isr_0:
-	cli
-	push $0
-	push $0
-	jmp isr_common_stub
+    cli
+    push $0
+    push $0
+    jmp isr_common_stub
 
 isr_1:
-	cli
-	push $0
-	push $1
-	jmp isr_common_stub
+    cli
+    push $0
+    push $1
+    jmp isr_common_stub
 
 isr_2:
-	cli
-	push $0
-	push $2
-	jmp isr_common_stub
+    cli
+    push $0
+    push $2
+    jmp isr_common_stub
 
 isr_3:
-	cli
-	push $0
-	push $3
-	jmp isr_common_stub
+    cli
+    push $0
+    push $3
+    jmp isr_common_stub
 
 isr_4:
-	cli
-	push $0
-	push $4
-	jmp isr_common_stub
+    cli
+    push $0
+    push $4
+    jmp isr_common_stub
 
 isr_5:
-	cli
-	push $0
-	push $5
-	jmp isr_common_stub
+    cli
+    push $0
+    push $5
+    jmp isr_common_stub
 
 isr_6:
-	cli
-	push $0
-	push $6
-	jmp isr_common_stub
+    cli
+    push $0
+    push $6
+    jmp isr_common_stub
 
 isr_7:
-	cli
-	push $0
-	push $7
-	jmp isr_common_stub
+    cli
+    push $0
+    push $7
+    jmp isr_common_stub
 
 isr_8:
-	cli
-	push $8
-	jmp isr_common_stub
+    cli
+    push $8
+    jmp isr_common_stub
 
 isr_9:
-	cli
-	push $0
-	push $9
-	jmp isr_common_stub
+    cli
+    push $0
+    push $9
+    jmp isr_common_stub
 
 isr_10:
-	cli
-	push $10
-	jmp isr_common_stub
+    cli
+    push $10
+    jmp isr_common_stub
 
 isr_11:
-	cli
-	push $11
-	jmp isr_common_stub
+    cli
+    push $11
+    jmp isr_common_stub
 
 isr_12:
-	cli
-	push $12
-	jmp isr_common_stub
+    cli
+    push $12
+    jmp isr_common_stub
 
 isr_13:
-	cli
-	push $13
-	jmp isr_common_stub
+    cli
+    push $13
+    jmp isr_common_stub
 
 isr_14:
-	cli
-	push $14
-	jmp isr_common_stub
+    cli
+    push $14
+    jmp isr_common_stub
 
 isr_16:
-	cli
-	push $0
-	push $16
-	jmp isr_common_stub
+    cli
+    push $0
+    push $16
+    jmp isr_common_stub
 
 isr_17:
-	cli
-	push $17
-	jmp isr_common_stub
+    cli
+    push $17
+    jmp isr_common_stub
 
 isr_18:
-	cli
-	push $0
-	push $18
-	jmp isr_common_stub
+    cli
+    push $0
+    push $18
+    jmp isr_common_stub
 
 isr_19:
-	cli
-	push $0
-	push $19
-	jmp isr_common_stub
+    cli
+    push $0
+    push $19
+    jmp isr_common_stub
 
 isr_20:
-	cli
-	push $0
-	push $20
-	jmp isr_common_stub
+    cli
+    push $0
+    push $20
+    jmp isr_common_stub
 
 isr_21:
-	cli
-	push $21
-	jmp isr_common_stub
+    cli
+    push $21
+    jmp isr_common_stub
 
 isr_28:
-	cli
-	push $0
-	push $28
-	jmp isr_common_stub
+    cli
+    push $0
+    push $28
+    jmp isr_common_stub
 
 isr_29:
-	cli
-	push $0
-	push $29
-	jmp isr_common_stub
+    cli
+    push $0
+    push $29
+    jmp isr_common_stub
 
 isr_30:
-	cli
-	push $30
-	jmp isr_common_stub
+    cli
+    push $30
+    jmp isr_common_stub
 
 isr_common_stub:
-	pusha
+    pusha
     push %ds
     push %es
     push %fs
@@ -400,7 +400,7 @@ isr_common_stub:
     pop %ds
     popa
     add $8, %esp      # Cleans up the pushed error code and pushed ISR number
-	sti
+    sti
     iret           # pops 5 things at once: CS, EIP, EFLAGS, SS, and ESP!
 
 .global irq0
@@ -419,102 +419,109 @@ isr_common_stub:
 .global irq13
 .global irq14
 .global irq15
+.global irq0x80
 
 irq0:
-	cli
-	push $0
-	push $32
-	jmp irq_common_stub
+    cli
+    push $0
+    push $32
+    jmp irq_common_stub
 
 irq1:
-	cli
-	push $0
-	push $33
-	jmp irq_common_stub
+    cli
+    push $0
+    push $33
+    jmp irq_common_stub
 
 irq2:
-	cli
-	push $0
-	push $34
-	jmp irq_common_stub
+    cli
+    push $0
+    push $34
+    jmp irq_common_stub
 
 irq3:
-	cli
-	push $0
-	push $35
-	jmp irq_common_stub
+    cli
+    push $0
+    push $35
+    jmp irq_common_stub
 
 irq4:
-	cli
-	push $0
-	push $36
-	jmp irq_common_stub
+    cli
+    push $0
+    push $36
+    jmp irq_common_stub
 
 irq5:
-	cli
-	push $0
-	push $37
-	jmp irq_common_stub
+    cli
+    push $0
+    push $37
+    jmp irq_common_stub
 
 irq6:
-	cli
-	push $0
-	push $38
-	jmp irq_common_stub
+    cli
+    push $0
+    push $38
+    jmp irq_common_stub
 
 irq7:
-	cli
-	push $0
-	push $39
-	jmp irq_common_stub
+    cli
+    push $0
+    push $39
+    jmp irq_common_stub
 
 irq8:
-	cli
-	push $0
-	push $40
-	jmp irq_common_stub
+    cli
+    push $0
+    push $40
+    jmp irq_common_stub
 
 irq9:
-	cli
-	push $0
-	push $41
-	jmp irq_common_stub
+    cli
+    push $0
+    push $41
+    jmp irq_common_stub
 
 irq10:
-	cli
-	push $0
-	push $42
-	jmp irq_common_stub
+    cli
+    push $0
+    push $42
+    jmp irq_common_stub
 
 irq11:
-	cli
-	push $0
-	push $43
-	jmp irq_common_stub
+    cli
+    push $0
+    push $43
+    jmp irq_common_stub
 
 irq12:
-	cli
-	push $0
-	push $44
-	jmp irq_common_stub
+    cli
+    push $0
+    push $44
+    jmp irq_common_stub
 
 irq13:
-	cli
-	push $0
-	push $45
-	jmp irq_common_stub
+    cli
+    push $0
+    push $45
+    jmp irq_common_stub
 
 irq14:
-	cli
-	push $0
-	push $46
-	jmp irq_common_stub
+    cli
+    push $0
+    push $46
+    jmp irq_common_stub
 
 irq15:
-	cli
-	push $0
-	push $47
-	jmp irq_common_stub
+    cli
+    push $0
+    push $47
+    jmp irq_common_stub
+
+irq0x80:
+    cli
+    push $0
+    push $0x80
+    jmp irq_common_stub
 
 .extern irq_handler
 .extern set_thread_stack
@@ -522,7 +529,7 @@ irq15:
 .extern sched_loop
 
 irq_common_stub:
-	pusha
+    pusha
     push %ds
     push %es
     push %fs
@@ -533,27 +540,33 @@ irq_common_stub:
     mov %ax, %fs
     mov %ax, %gs
     mov %esp, %eax
-	cld
+    cld
     push %eax
-	mov $irq_handler, %eax
+    mov $irq_handler, %eax
     call *%eax
     pop %eax
-	mov %esp, %eax
-	push %eax
-	mov $set_thread_stack, %eax
-	call *%eax
-	pop %eax
-	mov $sched_loop, %eax
-	call *%eax                       # After this EAX will contain a pointer to the thread
-	mov %eax, %ebx
-	push (%ebx)
-	mov $set_kernel_stack, %eax
-	call *%eax
-	mov (%ebx), %esp
-	pop %gs
+    mov $0x80, %eax
+    cmp 48(%esp), %eax
+    je no_switch
+    mov %esp, %eax
+    push %eax
+    mov $set_thread_stack, %eax
+    call *%eax
+    pop %eax
+    mov $sched_loop, %eax
+    call *%eax                       # After this EAX will contain a pointer to the thread
+    mov %eax, %ebx
+    push (%ebx)
+    mov $set_kernel_stack, %eax
+    call *%eax
+    mov (%ebx), %esp
+    mov 4(%ebx), %eax
+    mov %eax, %cr3
+no_switch:
+    pop %gs
     pop %fs
     pop %es
     pop %ds
-	popa
-	add $8, %esp
-	iret
+    popa
+    add $8, %esp
+    iret

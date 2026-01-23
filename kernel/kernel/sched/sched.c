@@ -18,8 +18,12 @@
 #include <kernel/exception.h>
 #include <kernel/sched.h>
 #include <kernel/kernel.h>
+#include <kernel/pmm.h>
+#include <kernel/vmm.h>
 #include <stdint.h>
 #include <string.h>
+
+#define PAGE_DIRECTORY_ADDR 0xFFFFF000
 
 #define PROCESS_STATE_RUNNING 0
 #define PROCESS_STATE_SUSPENDED 1
@@ -36,30 +40,6 @@
 
 #define SMALL_REALLOC_INCREMENT 64 // used in the tid list for processes
 #define DEFAULT_P_TID_LIST_SIZE SMALL_REALLOC_INCREMENT*2
-
-struct process {
-    char *name;
-    //char *args[]; will do later
-    uint32_t threadcount;
-    uint32_t *tids; // this is a dynamic array
-    uint32_t tids_size;
-    uint32_t *mapping_phys; // this will be realloc'd to whatever size we need, maximum 3mb
-    uint32_t *mapping_virt; // this will be realloc'd to whatever size we need, maximum 3mb
-    uint32_t mapping_size;
-    uint32_t pid;
-    uint32_t entrypoint;
-
-    uint8_t privilege_level;
-    uint8_t state;
-    uint8_t priority;
-};
-
-struct thread {
-    uint32_t *esp_k;
-    uint8_t privilege_level;
-    uint32_t pid;
-    uint8_t state;
-} __attribute__((packed)); // this is because this will be accessed from asm
 
 struct process **processes;
 uint32_t processes_size;
@@ -116,7 +96,8 @@ uint32_t sched_create_thread(uint32_t ownerpid, uint32_t entrypoint) {
 
     threads[last_tid-1] = (struct thread*)kmalloc(sizeof(struct thread));
     threads[last_tid-1]->pid = ownerpid;
-
+    threads[last_tid-1]->cr3 = processes[ownerpid-1]->cr3;
+    
     // create the stack
     threads[last_tid-1]->esp_k = (uint32_t*)((uint32_t)kmalloc(4096*4)+4096*4); // this is for context switches and kernel level threads
 
@@ -154,7 +135,7 @@ uint32_t sched_create_thread(uint32_t ownerpid, uint32_t entrypoint) {
     return last_tid++;
 }
 
-uint32_t sched_create_process(uint8_t privilege, uint8_t priority, char* name) {
+uint32_t sched_create_process(uint8_t privilege, uint8_t priority, const char* name) {
     if (bootfinished) { asm("cli"); }
     if (last_pid-1 >= MAX_PROCESSES) {
         panic("Out of process ids"); // todo: reuse dead ids
@@ -173,11 +154,18 @@ uint32_t sched_create_process(uint8_t privilege, uint8_t priority, char* name) {
     processes[last_pid-1]->privilege_level = privilege;
     processes[last_pid-1]->state = PROCESS_STATE_STARTING;
     processes[last_pid-1]->threadcount = 0;
-    processes[last_pid-1]->mapping_size = 0;
     processes[last_pid-1]->pid = last_pid;
     processes[last_pid-1]->tids = (uint32_t*)kmalloc(sizeof(uint32_t) * DEFAULT_P_TID_LIST_SIZE);
     processes[last_pid-1]->tids_size = DEFAULT_P_TID_LIST_SIZE;
+    processes[last_pid-1]->cr3_virt = (uint32_t*)liballoc_alloc(1); // this gives us a page aligned 4k block of memory for our page directory
+    processes[last_pid-1]->cr3 = (uint32_t*)vmm_get_physaddr((address_t)processes[last_pid-1]->cr3_virt);
 
+    // copy the kernel directory entries into the process page directory
+    unsigned long *pd = (unsigned long *)PAGE_DIRECTORY_ADDR;
+    for (int i = 768; i < 1024; i++) {
+        processes[last_pid-1]->cr3_virt[i] = pd[i];
+    }
+    
     processes[last_pid-1]->priority = priority;
     switch (priority) {
         case 0:
@@ -204,6 +192,12 @@ uint32_t sched_create_process(uint8_t privilege, uint8_t priority, char* name) {
 
     if (bootfinished) { asm("sti"); }
     return last_pid++;
+}
+
+uint32_t sched_set_cr3(uint32_t pid, uint32_t* newcr3) {
+    liballoc_free((void*)processes[pid-1]->cr3_virt, 1);
+    processes[pid-1]->cr3 = newcr3;
+    return pid;
 }
 
 uint32_t sched_find_next_pid(void) {
@@ -268,6 +262,7 @@ void sched_pick_next(void) {
             // if it's a kernel process, we have nothing to do here
             if (processes[nextpid-1]->privilege_level == 0) { processes[nextpid-1]->state = PROCESS_STATE_RUNNING; }
             // if it's not, we need to wait for the process loader to finish spawning the process
+
             break;
         case PROCESS_STATE_EXITING:
             break;

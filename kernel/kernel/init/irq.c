@@ -35,6 +35,7 @@ extern void irq12();
 extern void irq13();
 extern void irq14();
 extern void irq15();
+extern void irq0x80();
 
 void *irq_routines[16] = {
     0, 0, 0, 0, 0, 0, 0, 0,
@@ -91,6 +92,7 @@ void irq_install(void) {
     idt_set_gate(45, &irq13, 0x8E);
     idt_set_gate(46, &irq14, 0x8E);
     idt_set_gate(47, &irq15, 0x8E);
+    idt_set_gate(0x80, &irq0x80, 0x8E);
     
     //asm("sti");
 }
