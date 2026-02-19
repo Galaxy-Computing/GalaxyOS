@@ -3,7 +3,7 @@
 
 void isrs_install(void);
 
-void panic(char *message);
+void panic(const char *message);
 extern void halt(void);
 
 #endif

@@ -44,6 +44,7 @@ void kernel_loop(void) {
         char printingchar;
         size_t chars_read = term_read(&printingchar, 1);
         if (chars_read) {
+            asm("ud2");
             term_write(&printingchar, 1);
         }
         #endif

@@ -20,6 +20,7 @@
 #include <kernel/tty.h>
 #include <kernel/kernel.h>
 #include <stdio.h>
+#include <stdarg.h>
 
 extern void isr_0(void);
 extern void isr_1(void);
@@ -45,6 +46,43 @@ extern void isr_21(void);
 extern void isr_28(void);
 extern void isr_29(void);
 extern void isr_30(void);
+
+char exbuf[96];
+
+char cpumessages[][32] = {
+    "Division Error",
+    "Debug",
+    "Non-maskable Interrupt",
+    "Breakpoint",
+    "Overflow",
+    "Bound Range Exceeded",
+    "Invalid Opcode",
+    "Device Not Available",
+    "Double Fault",
+    "Coprocessor Segment Overrun",
+    "Invalid TSS",
+    "Segment Not Present",
+    "Stack-Segment Fault",
+    "General Protection Fault",
+    "Page Fault",
+    "Unknown",
+    "x87 Floating-Point Exception",
+    "Alignment Check",
+    "Machine Check",
+    "SIMD Floating-Point Exception",
+    "Virtualization Exception",
+    "Control Protection Exception",
+    "Unknown",
+    "Unknown",
+    "Unknown",
+    "Unknown",
+    "Unknown",
+    "Unknown",
+    "Hypervisor Injection Exception",
+    "VMM Communication Exception",
+    "Security Exception",
+    "Unknown"
+};
 
 void isrs_install(void) {
     idt_set_gate(0, &isr_0, 0x8F);
@@ -74,7 +112,7 @@ void isrs_install(void) {
 }
 
 __attribute__((__noreturn__))
-void panic(char *message) {
+void panic(const char *message) {
     terminal_setbgcolor(VGA_COLOR_RED);
     terminal_setfgcolor(VGA_COLOR_WHITE);
     terminal_clear();
@@ -87,7 +125,8 @@ void panic(char *message) {
 
 void exception_handle(struct regs *r) {
     if (r->int_no < 32) {
-        panic("CPU exception occurred");
+        sprintf(exbuf, "CPU exception occurred: %s (0x%x)", cpumessages[r->int_no], r->int_no);
+        panic(exbuf);
     }
 }
 

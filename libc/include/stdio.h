@@ -21,6 +21,7 @@ extern FILE *stderr;
 #define stderr stderr
 
 int printf(const char* __restrict, ...);
+int sprintf(char *str, const char* restrict format, ...);
 int putchar(int);
 int puts(const char*);
 int fflush(FILE*);
