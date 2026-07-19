@@ -23,14 +23,14 @@
 #define PAGE_SIZE 0x1000
 
 int liballoc_lock(void) {
-    if (bootfinished) {
+    if (kmode) {
         asm("cli");
     }
     return 0;
 }
 
 int liballoc_unlock(void) {
-    if (bootfinished) {
+    if (kmode) {
         asm("sti");
     }
     return 0;

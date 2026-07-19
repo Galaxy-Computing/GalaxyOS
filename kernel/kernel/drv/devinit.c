@@ -73,7 +73,7 @@ void devinit(void) {
     temp.type = DEVICE_FILESYSTEM;
     temp.k_id = VFAT;
     devreg_register_device(&temp);
-    rdisk_init();
+    vfat_init();
     #endif
 
     log_ok("[DEVREG] Device initialization complete.");

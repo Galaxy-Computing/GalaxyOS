@@ -110,7 +110,7 @@ void ps2kb_succeed_command(void) {
 void ps2kb_handler(struct regs *r) {
     // We have a keyboard int
     key = ps2_recieve_data();
-    if (bootfinished) {
+    if (kmode) {
         if (key == 0xFA) {
             ps2kb_succeed_command();
             return;

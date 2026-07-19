@@ -34,7 +34,7 @@
 #include <kernel/sched.h>
 #include <kernel/term.h>
 
-int bootfinished = 0;
+int kmode = 0;
 
 void kernel_loop(void) {
     // We're in the kernel thread
@@ -44,7 +44,7 @@ void kernel_loop(void) {
         char printingchar;
         size_t chars_read = term_read(&printingchar, 1);
         if (chars_read) {
-            asm("ud2");
+            //asm("ud2");
             term_write(&printingchar, 1);
         }
         #endif
@@ -81,7 +81,7 @@ void kernel_main(multiboot_info_t* mbd, unsigned int magic, unsigned int pagetab
     devinit();
     
     sched_init();
-    sched_create_thread(pload_create_process_k((uint32_t*)vmm_get_physaddr(0xFFFFF000)), (uint32_t)&kernel_loop);
+    sched_create_thread(pload_create_process_k((uint32_t*)vmm_get_physaddr(0xFFFFF000)), 0, (uint32_t)&kernel_loop);
     // this is sort of a nasty hack
     sched_pick_next();
     sched_pick_next();
@@ -91,7 +91,9 @@ void kernel_main(multiboot_info_t* mbd, unsigned int magic, unsigned int pagetab
 
     // We would start our init process here if we had it
 
-    bootfinished = 1;
+    kmode = 1;
+    log_info("kmode switched to 1");
+
     asm("sti");
     /* 
      * since the scheduler thinks that we are the kernel thread now due to the above pick_next calls, 
