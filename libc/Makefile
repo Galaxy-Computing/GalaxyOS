@@ -28,6 +28,7 @@ stdio/printf.o \
 stdio/putchar.o \
 stdio/puts.o \
 stdio/fopen.o \
+stdio/getchar.o \
 stdlib/abort.o \
 stdlib/atoi.o \
 stdlib/itoa.o \

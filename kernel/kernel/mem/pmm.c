@@ -29,12 +29,22 @@ extern void halt(void); // fuk
 extern unsigned long _kernel_end;
 uint32_t kernel_end = (uint32_t)&_kernel_end;
 
+address_t pmem_stack_size;
+
 static volatile address_t pmem_stack[MAX_PAGES];
 static volatile address_t pmem_stack_top;
 
 /* return number of free pages */
 address_t pmm_available(void) {
     return pmem_stack_top;
+}
+
+address_t pmm_used(void) {
+    return (pmem_stack_size + ((kernel_end - 0xC0000000) / 4096)) - pmem_stack_top;
+}
+
+address_t pmm_used_alloc(void) {
+    return pmem_stack_size - pmem_stack_top;
 }
 
 /* allocate a single page */
@@ -79,6 +89,7 @@ void pmm_init(multiboot_info_t* mbd) {
             }
         }
     }
+    pmem_stack_size = pmem_stack_top;
 }
 
 void pmm_log(void) {
@@ -87,5 +98,5 @@ void pmm_log(void) {
     terminal_setfgcolor(VGA_COLOR_LIGHT_BLUE);
     printf("INFO");
     terminal_setfgcolor(VGA_COLOR_LIGHT_MAGENTA);
-    printf("] [PMM] Detected %iM bytes of memory usable.\n", pmm_available() / 256);
+    printf("] [PMM] Detected %iM bytes of memory available.\n", pmm_available() / 256);
 }

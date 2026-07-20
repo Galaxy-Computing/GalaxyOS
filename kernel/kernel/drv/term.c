@@ -18,7 +18,7 @@
 #include <kernel/term.h>
 #include <kernel/devcfg.h>
 
-// New code should be added here when a new terminal driver is added, for now we just use the VGATEXT one.
+// New code should be added here when a new terminal or keyboard driver is added, for now we just use the VGATEXT one.
 
 void term_write(const char *str, size_t size) {
     #ifdef VGATEXT
@@ -34,4 +34,35 @@ size_t term_read(char *buf, size_t size) {
     #endif
     //if (bytes_read >= size) { return bytes_read; } // this is only needed if we have more than one keyboard driver
     return bytes_read;
+}
+
+size_t term_readline(char *buf, size_t size) {
+    #ifdef PS2KB
+    ps2kb_clear_keybuf();
+    #endif
+    size_t bytes_read = 0;
+    size_t old_bytes_read = 0;
+    while (bytes_read < size) {
+        asm("hlt");
+        bytes_read += term_read(&buf[bytes_read], 1);
+        if (bytes_read > old_bytes_read) {
+            term_write(&buf[bytes_read-1], 1);
+            old_bytes_read = bytes_read;
+            if (buf[bytes_read-1] == 0x7F) {
+                buf[bytes_read-1] = 0;
+                bytes_read--;
+                old_bytes_read--;
+                if (bytes_read) {
+                    buf[bytes_read-1] = 0;
+                    bytes_read--;
+                    old_bytes_read--;
+                }
+            }
+            if (buf[bytes_read-1] == '\n') {
+                buf[bytes_read-1] = 0;
+                bytes_read--;
+                return bytes_read;
+            }
+        }
+    }
 }

@@ -51,7 +51,7 @@ char scancodelower[] = {
     ';','p','-',0,
     0,0,'\'',0,
     '[','=',0,0,
-    0,0,0,']',
+    0,0,'\n',']',
     0,'\\',0,0,
     0,0,0,0,
     0,0,0x7F,0,
@@ -183,6 +183,13 @@ void ps2kb_init(void) {
     command_queue_end = 0;
     command_queue_start = 0;
     is_sending_command = false;
+
+    ps2kb_send_command(0xF0); // set scancode set
+    ps2kb_send_command(0x02); // 2
+
+    ps2kb_send_command(0xED); // set LEDs
+    ps2kb_send_command(0x00); // all off
+
     log_ok("[PS2KB] Initialized keyboards.");
 }
 

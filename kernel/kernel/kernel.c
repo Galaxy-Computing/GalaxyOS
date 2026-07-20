@@ -33,6 +33,7 @@
 #include <kernel/pload.h>
 #include <kernel/sched.h>
 #include <kernel/term.h>
+#include <kernel/dbgsh.h>
 
 int kmode = 0;
 
@@ -41,12 +42,12 @@ void kernel_loop(void) {
     for (;;) {
         #ifdef PS2KB
         ps2kb_loop();
-        char printingchar;
+        /*char printingchar;
         size_t chars_read = term_read(&printingchar, 1);
         if (chars_read) {
             //asm("ud2");
-            term_write(&printingchar, 1);
-        }
+            if (printingchar) { term_write(&printingchar, 1); }
+        }*/
         #endif
     }
 }
@@ -92,7 +93,9 @@ void kernel_main(multiboot_info_t* mbd, unsigned int magic, unsigned int pagetab
     // We would start our init process here if we had it
 
     kmode = 1;
-    log_info("kmode switched to 1");
+    //log_info("kmode switched to 1");
+    
+    sched_create_thread(sched_create_process(0, "kdbgsh"), 0, (uint32_t)&dbgsh_main);
 
     asm("sti");
     /* 

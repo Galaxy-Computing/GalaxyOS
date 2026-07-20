@@ -55,7 +55,6 @@ uint32_t queue_start;
 uint32_t queue_loc;
 uint32_t queue_end;
 
-uint32_t currentpid;
 uint32_t currenttid;
 
 uint32_t idletid;
@@ -190,7 +189,6 @@ uint32_t sched_pop_next_tid(void) {
 }
 
 void sched_pick_next(void) {
-    currentpid = 0;
     currenttid = 0;
     while (!currenttid) {
         uint32_t nexttid = sched_pop_next_tid();
@@ -227,9 +225,7 @@ void sched_pick_next(void) {
 }
 
 struct thread *sched_loop(void) {
-    while (!currenttid) {
-        sched_pick_next();
-    }
+    sched_pick_next();
     if (threads[currenttid-1]->privilege_level) {
         panic("User space process not implemented");
     }
@@ -250,7 +246,6 @@ void sched_init(void) {
     last_pid = 1;
     last_tid = 1;
 
-    currentpid = 0;
     currenttid = 0;
 
     sched_create_process_idle();

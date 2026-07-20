@@ -34,6 +34,9 @@ void sched_pick_next(void);
 uint32_t sched_set_cr3(uint32_t pid, uint32_t* newcr3);
 
 extern uint32_t currenttid;
-extern uint32_t currentpid;
+
+extern struct process **processes;
+extern uint32_t processes_size;
+extern uint32_t last_pid;
 
 #endif
