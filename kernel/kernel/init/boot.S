@@ -419,6 +419,7 @@ isr_common_stub:
 .global irq13
 .global irq14
 .global irq15
+.global irq16
 .global irq0x80
 
 irq0:
@@ -515,6 +516,12 @@ irq15:
     cli
     push $0
     push $47
+    jmp irq_common_stub
+
+irq16:
+    cli
+    push $0
+    push $48
     jmp irq_common_stub
 
 irq0x80:

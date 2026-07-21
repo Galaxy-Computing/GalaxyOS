@@ -13,8 +13,9 @@
 #define RDISK   4 // RAM Disk
 #define ATAPIO  5 // ATAPIO interface
 #define VFAT    7 // VFAT FS driver
+#define ATAPI   8 // ATAPI driver
 
-// TTY drivers (all have KID 6)
+// TTY drivers
 #define VGATEXT 6 // VGA text terminal
 
 // Don't modify anything past this line if you are just changing configuration.
@@ -45,6 +46,10 @@
 
 #ifdef VFAT
 #include <kernel/vfat.h>
+#endif
+
+#ifdef ATAPI
+#include <kernel/atapi.h>
 #endif
 
 void devinit(void);

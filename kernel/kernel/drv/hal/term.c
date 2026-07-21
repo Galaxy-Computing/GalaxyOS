@@ -17,6 +17,7 @@
 #include <stddef.h>
 #include <kernel/term.h>
 #include <kernel/devcfg.h>
+#include <kernel/sched.h>
 
 // New code should be added here when a new terminal or keyboard driver is added, for now we just use the VGATEXT one.
 
@@ -43,7 +44,7 @@ size_t term_readline(char *buf, size_t size) {
     size_t bytes_read = 0;
     size_t old_bytes_read = 0;
     while (bytes_read < size) {
-        asm("hlt");
+        sched_suspend_current_thread(1); // wait for a keyboard int
         bytes_read += term_read(&buf[bytes_read], 1);
         if (bytes_read > old_bytes_read) {
             term_write(&buf[bytes_read-1], 1);

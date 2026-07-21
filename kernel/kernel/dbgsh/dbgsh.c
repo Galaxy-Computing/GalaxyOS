@@ -18,6 +18,8 @@
 #include <kernel/kernel.h>
 #include <kernel/sched.h>
 #include <kernel/pmm.h>
+#include <kernel/vfs.h>
+#include <kernel/liballoc.h>
 #include <string.h>
 #include <stdio.h>
 
@@ -42,11 +44,13 @@ void dbgsh_main(void) {
             printf("%s\n", K_VERSION);
         } 
         else if (!strcmp(cmd, "help")) {
-            printf("exit - exit kdbgsh\n");
-            printf("ver  - display kernel version\n");
-            printf("ps   - list processes\n");
-            printf("mem  - list memory usage (mb)\n");
-            printf("memk - list memory usage (kb)\n");
+            printf("exit       - exit kdbgsh\n");
+            printf("ver        - display kernel version\n");
+            printf("ps         - list processes\n");
+            printf("mem        - list memory usage (mb)\n");
+            printf("memk       - list memory usage (kb)\n");
+            printf("lsblk      - list block devices\n");
+            printf("blocktest  - test block device\n");
         }
         else if (!strcmp(cmd, "ps")) {
             printf("id pl name\n");
@@ -63,6 +67,36 @@ void dbgsh_main(void) {
             printf("used: %imb\n", pmm_used() / 256);
             printf("allocated: %imb\n", pmm_used_alloc() / 256);
             printf("available: %imb\n", pmm_available() / 256);
+        }
+        else if (!strcmp(cmd, "blocktest")) {
+            printf("device: ");
+            term_readline(cmdbuf, 256);
+            struct vfs_block_device* bd = vfs_find_block_device_by_name(cmdbuf);
+            if (bd == NULL) {
+                printf("device doesn't exist\n");
+            } else {
+                char* blockbuf = (char*)kmalloc(bd->blocksize);
+                uint32_t readcount = bd->block(blockbuf, bd, 0, 16);
+                if (readcount) {
+                    printf("%i bytes read successfully\n", readcount);
+                    /*for (uint32_t i = 0; i < readcount; i++) {
+                        printf("%x ", blockbuf[i]);
+                    }*/
+                } else {
+                    printf("block read failed\n");
+                }
+                kfree(blockbuf);
+            }
+        }
+        else if (!strcmp(cmd, "lsblk")) {
+            if (vfs_last_blockdevice) {
+                for (uint32_t i = 0; i < vfs_last_blockdevice; i++) {
+                    printf(vfs_blockdevices[i].name);
+                    printf("\n");
+                }
+            } else {
+                printf("no block devices\n");
+            }
         }
     }
 }

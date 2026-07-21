@@ -21,6 +21,7 @@
 #include <kernel/pmm.h>
 #include <kernel/vmm.h>
 #include <kernel/idle.h>
+#include <kernel/irq.h>
 #include <stdint.h>
 #include <string.h>
 
@@ -174,6 +175,18 @@ uint32_t sched_create_process_idle(void) {
     return idlepid;
 }
 
+void sched_suspend_thread(uint8_t irq, uint32_t tid) {
+    if (kmode) { asm("cli"); }
+    threads[tid-1]->irq_wait = irq;
+    threads[tid-1]->state = THREAD_STATE_SUSPENDED;
+    if (kmode) { asm("sti"); }
+}
+
+void sched_suspend_current_thread(uint8_t irq) {
+    sched_suspend_thread(irq, currenttid);
+    asm("int $0x30"); // this yields to the next thread
+}
+
 uint32_t sched_find_next_tid(void) {
     if (queue_end-queue_loc > 0) {
         return queue[queue_loc];
@@ -186,6 +199,16 @@ uint32_t sched_pop_next_tid(void) {
         return queue[queue_loc++];
     }
     return 0; // no processes exist
+}
+
+void sched_check_suspended_threads(uint8_t irq) {
+    for (int i = 0; i < last_tid-1; i++) {
+        if (threads[i]->state == THREAD_STATE_SUSPENDED) {
+            if (threads[i]->irq_wait == irq) {
+                threads[i]->state = THREAD_STATE_RUNNING;
+            }
+        }
+    }
 }
 
 void sched_pick_next(void) {
@@ -205,20 +228,21 @@ void sched_pick_next(void) {
                 currenttid = nexttid;
                 break;
             case THREAD_STATE_SUSPENDED:
-                // skip this one
+                // skip it
                 break;
             case THREAD_STATE_WAITING:
-                // also skip it
+                // skip it
                 break;
             case THREAD_STATE_STARTING:
                 // if it's a kernel process, we have nothing to do here
                 if (threads[nexttid-1]->privilege_level == 0) { threads[nexttid-1]->state = THREAD_STATE_RUNNING; }
-                // if it's not, we need to wait for the process loader to finish spawning the process
+                // if it's not, we need to wait for the process loader to finish spawning the thread
                 break;
             case THREAD_STATE_EXITING:
+                // TODO: remove thread from process and queue
                 break;
             case THREAD_STATE_DEAD:
-                // this really shouldn't happen, a dead process should never be in the queue
+                // this really shouldn't happen, a dead thread should never be in the queue
                 break;
         }
     }

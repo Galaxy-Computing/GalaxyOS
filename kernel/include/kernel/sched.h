@@ -23,7 +23,7 @@ struct thread {
     uint32_t pid;
     uint8_t privilege_level;
     uint8_t state;
-    uint8_t priority;
+    uint8_t irq_wait; // this is set to the irq that is being waited for if the thread is suspended
 } __attribute__((packed)); // this is because this will be accessed from asm
 
 uint32_t sched_create_thread(uint32_t ownerpid, uint8_t noqueue, uint32_t entrypoint);
@@ -32,6 +32,9 @@ void sched_init(void);
 struct thread *sched_loop(void);
 void sched_pick_next(void);
 uint32_t sched_set_cr3(uint32_t pid, uint32_t* newcr3);
+void sched_check_suspended_threads(uint8_t irq);
+void sched_suspend_thread(uint8_t irq, uint32_t tid);
+void sched_suspend_current_thread(uint8_t irq);
 
 extern uint32_t currenttid;
 

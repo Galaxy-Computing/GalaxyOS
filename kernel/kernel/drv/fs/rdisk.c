@@ -25,23 +25,6 @@
 
 #define RDISK_BLOCK_SIZE 512
 
-struct vfs_device_driver rdisk_vfsdrvinfo;
-
-uint32_t rdisk_create(uint32_t blocks) {
-    struct vfs_block_device tempdevice;
-    tempdevice.devicedriver = &rdisk_vfsdrvinfo;
-    tempdevice.blocksize = RDISK_BLOCK_SIZE;
-    tempdevice.blocks = blocks;
-    tempdevice.mounted = 0;
-    tempdevice.ispartition = 2;
-
-    // we're using the extraa field here as a pointer to the device contents in memory
-    tempdevice.extraa = kmalloc(blocks*RDISK_BLOCK_SIZE);
-
-    uint32_t id = vfs_register_blockdevice(&tempdevice);
-    return id;
-}
-
 // standard vfs interface
 uint32_t rdisk_block(unsigned char* data, const struct vfs_block_device* blockdevice, const uint8_t write, const uint32_t index) { 
     if (write) {
@@ -64,8 +47,19 @@ uint32_t rdisk_block(unsigned char* data, const struct vfs_block_device* blockde
     return RDISK_BLOCK_SIZE;
 }
 
-void rdisk_init(void) {
-    rdisk_vfsdrvinfo.block = rdisk_block;
+uint32_t rdisk_create(uint32_t blocks) {
+    struct vfs_block_device tempdevice;
+    tempdevice.block = &rdisk_block;
+    tempdevice.blocksize = RDISK_BLOCK_SIZE;
+    tempdevice.blocks = blocks;
+    tempdevice.mounted = 0;
+    tempdevice.ispartition = 2;
+
+    // we're using the extraa field here as a pointer to the device contents in memory
+    tempdevice.extraa = kmalloc(blocks*RDISK_BLOCK_SIZE);
+
+    uint32_t id = vfs_register_blockdevice(&tempdevice);
+    return id;
 }
 
 #endif

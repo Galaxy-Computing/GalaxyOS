@@ -17,7 +17,9 @@
 #include <kernel/irq.h>
 #include <kernel/idt.h>
 #include <kernel/io.h>
+#include <kernel/sched.h>
 #include <stdio.h>
+#include <stdint.h>
 
 extern void irq0();
 extern void irq1();
@@ -35,9 +37,36 @@ extern void irq12();
 extern void irq13();
 extern void irq14();
 extern void irq15();
+extern void irq16();
 extern void irq0x80();
 
-void *irq_routines[16] = {
+void *irq_routines[224] = {
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0
 };
@@ -92,12 +121,17 @@ void irq_install(void) {
     idt_set_gate(45, &irq13, 0x8E);
     idt_set_gate(46, &irq14, 0x8E);
     idt_set_gate(47, &irq15, 0x8E);
+    idt_set_gate(48, &irq16, 0x8E);
     idt_set_gate(0x80, &irq0x80, 0x8E);
     
     //asm("sti");
 }
 
 void irq_handler(struct regs *r) {
+    if (r->int_no > 32) {
+        sched_check_suspended_threads(r->int_no - 32);
+    }
+
     /* This is a blank function pointer */
     void (*handler)(struct regs *r);
 
@@ -109,6 +143,9 @@ void irq_handler(struct regs *r) {
         handler(r);
     }
 
+    if (r->int_no >= 48) {
+        return; // Since the interrupt didn't come from the interrupt controller we don't need to do anything else
+    }
     /* If the IDT entry that was invoked was greater than 40
     *  (meaning IRQ8 - 15), then we need to send an EOI to
     *  the slave controller */

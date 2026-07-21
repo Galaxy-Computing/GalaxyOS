@@ -26,14 +26,14 @@
 
 #define DEFAULT_BLOCKDEVICES_SIZE 512
 
-struct vfs_block_device *blockdevices;
-uint32_t last_blockdevice;
+struct vfs_block_device *vfs_blockdevices;
+uint32_t vfs_last_blockdevice;
 uint32_t blockdevices_size;
 
 void vfs_init(void) {
-    blockdevices = (struct vfs_block_device*)kmalloc(sizeof(struct vfs_block_device) * DEFAULT_BLOCKDEVICES_SIZE);
+    vfs_blockdevices = (struct vfs_block_device*)kmalloc(sizeof(struct vfs_block_device) * DEFAULT_BLOCKDEVICES_SIZE);
     blockdevices_size = DEFAULT_BLOCKDEVICES_SIZE;
-    last_blockdevice = 0;
+    vfs_last_blockdevice = 0;
 }
 
 struct vfs_block_device *vfs_find_block_device_by_path(const char* path) {
@@ -48,10 +48,10 @@ struct vfs_block_device *vfs_find_block_device_by_path(const char* path) {
         }
         buf[i] = path[i];
     }
-    for (uint32_t i = 0; i < last_blockdevice; i++) {
-        if (blockdevices[i].mounted) {
-            if (!strcmp(blockdevices[i].mountpoint->name, buf)) {
-                return &blockdevices[i];
+    for (uint32_t i = 0; i < vfs_last_blockdevice; i++) {
+        if (vfs_blockdevices[i].mounted) {
+            if (!strcmp(vfs_blockdevices[i].mountpoint->name, buf)) {
+                return &vfs_blockdevices[i];
             }
         }
     }
@@ -59,24 +59,33 @@ struct vfs_block_device *vfs_find_block_device_by_path(const char* path) {
 }
 
 struct vfs_block_device *vfs_get_block_device(uint32_t id) {
-    if (last_blockdevice - 1 > id) {
-        return NULL; // this mountpoint doesn't exist
+    if (vfs_last_blockdevice - 1 > id) {
+        return NULL; // this block device doesn't exist
     }
-    return &blockdevices[id];
+    return &vfs_blockdevices[id];
+}
+
+struct vfs_block_device *vfs_find_block_device_by_name(const char* name) {
+    for (uint32_t i = 0; i < vfs_last_blockdevice; i++) {
+        if (!strcmp(vfs_blockdevices[i].name, name)) {
+            return &vfs_blockdevices[i];
+        }
+    }
+    return NULL;
 }
 
 uint32_t vfs_register_blockdevice(struct vfs_block_device *newblockdevice) {
     // need to do this weird thing or else two of these calls running at the same time would cause scary implosion of both block devices
-    __sync_fetch_and_add(&last_blockdevice, 1);
+    __sync_fetch_and_add(&vfs_last_blockdevice, 1);
 
-    if (last_blockdevice-1 >= blockdevices_size) {
-        blockdevices = (struct vfs_block_device*)krealloc((void*)blockdevices, sizeof(struct vfs_block_device) * (blockdevices_size+DEFAULT_BLOCKDEVICES_SIZE));
+    if (vfs_last_blockdevice-1 >= blockdevices_size) {
+        vfs_blockdevices = (struct vfs_block_device*)krealloc((void*)vfs_blockdevices, sizeof(struct vfs_block_device) * (blockdevices_size+DEFAULT_BLOCKDEVICES_SIZE));
         blockdevices_size = blockdevices_size+DEFAULT_BLOCKDEVICES_SIZE;
     }
 
-    memcpy(&blockdevices[last_blockdevice-1], newblockdevice, sizeof(struct vfs_block_device));
-    blockdevices[last_blockdevice-1].id = last_blockdevice;
-    return last_blockdevice;
+    memcpy(&vfs_blockdevices[vfs_last_blockdevice-1], newblockdevice, sizeof(struct vfs_block_device));
+    vfs_blockdevices[vfs_last_blockdevice-1].id = vfs_last_blockdevice;
+    return vfs_last_blockdevice;
 }
 
 struct vfs_mount_point *vfs_mount_direct(struct vfs_block_device *blockdevice, const struct vfs_mount_point *mp) {
@@ -92,7 +101,7 @@ struct vfs_mount_point *vfs_mount_direct(struct vfs_block_device *blockdevice, c
 }*/
 
 /*struct vfs_mount_point *vfs_mount_by_id(uint32_t blockdevice) {
-    return vfs_mount(&blockdevices[blockdevice]);
+    return vfs_mount(&vfs_blockdevices[blockdevice]);
 }*/
 
 /*FILE *vfs_get_file(const char *filename, const char *mode) {
@@ -101,10 +110,11 @@ struct vfs_mount_point *vfs_mount_direct(struct vfs_block_device *blockdevice, c
     return NULL;
 }*/
 
+
 uint32_t vfs_read_blocks(unsigned char *dest, const struct vfs_block_device *blockdevice, const uint32_t blocks, const uint32_t index) {
     uint32_t bytesread = 0;
     for (unsigned int i = 0; i < blocks; i++) {
-        bytesread += blockdevice->devicedriver->block(dest+(i*blockdevice->blocksize), blockdevice, 0, i+index);
+        bytesread += blockdevice->block(dest+(i*blockdevice->blocksize), blockdevice, 0, i+index);
     }
     return bytesread;
 } 
@@ -112,7 +122,7 @@ uint32_t vfs_read_blocks(unsigned char *dest, const struct vfs_block_device *blo
 uint32_t vfs_write_blocks(unsigned char *data, const struct vfs_block_device *blockdevice, const uint32_t blocks, const uint32_t index) {
     uint32_t byteswritten = 0;
     for (unsigned int i = 0; i < blocks; i++) {
-        byteswritten += blockdevice->devicedriver->block(data+(i*blockdevice->blocksize), blockdevice, 1, i+index);
+        byteswritten += blockdevice->block(data+(i*blockdevice->blocksize), blockdevice, 1, i+index);
     }
     return byteswritten;
 } 
