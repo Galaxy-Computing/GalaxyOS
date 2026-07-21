@@ -3,7 +3,6 @@
 
 #include <stdint.h>
 #include <stdio.h>
-#include <kernel/devreg.h>
 
 #define BLOCK_READ 0
 #define BLOCK_WRITE 1
@@ -12,7 +11,6 @@ struct vfs_mount_point {
     char name[17]; // 16 + terminator
     uint32_t blockdeviceid;
     struct vfs_device_driver* devicedriver;
-    struct device* fsdriver;
     void* extra; // Usable by the FS driver to point to any extra information
     uint8_t rw;
 };
@@ -27,8 +25,6 @@ struct vfs_block_device {
     uint8_t mounted; // 1 = mounted, if 0 the above field isn't used
 
     uint8_t ispartition; // 2 = not partition w/no partition table, 1 = has partition table, 0 = is partition
-    // this field is only used if ispartition is 1 or 0
-    struct device* partitiontabledriver;
     // these fields are only used if ispartition is 0, if they aren't used these are free for the device driver to use for any purpose
     uint32_t parentid;
     struct vfs_block_device* parent;
@@ -44,12 +40,10 @@ typedef int (*vfs_fs_mount)(struct vfs_block_device*, const uint8_t);
 
 struct vfs_device_driver {
     vfs_block block;
-    struct device* devicedriver;
 };
 
 struct vfs_fs_driver {
     vfs_fs_mount mount;
-    struct device* devicedriver;
 };
 
 void vfs_init(void);

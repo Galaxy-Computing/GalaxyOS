@@ -66,7 +66,6 @@ uint32_t rdisk_block(unsigned char* data, const struct vfs_block_device* blockde
 
 void rdisk_init(void) {
     rdisk_vfsdrvinfo.block = rdisk_block;
-    rdisk_vfsdrvinfo.devicedriver = devreg_find_device_by_kid(RDISK);
 }
 
 #endif

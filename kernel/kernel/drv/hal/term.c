@@ -65,4 +65,5 @@ size_t term_readline(char *buf, size_t size) {
             }
         }
     }
+    return bytes_read;
 }

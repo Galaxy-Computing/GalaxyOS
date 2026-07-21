@@ -61,7 +61,6 @@ void kernel_main(multiboot_info_t* mbd, unsigned int magic, unsigned int pagetab
     pmm_init(vmbd);
     vmm_init(pagetable);
 
-    devinit_init();
     devinit_tty();
     log_ok("Terminal initialized");
 

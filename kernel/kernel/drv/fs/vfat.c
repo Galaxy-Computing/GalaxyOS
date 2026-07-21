@@ -58,7 +58,6 @@ int vfat_attempt_mount(struct vfs_block_device* blockdevice, const uint8_t rw) {
     struct vfs_mount_point tempmount;
     struct fat_info* fatinfopointer;
     tempmount.rw = rw;
-    tempmount.fsdriver = devreg_find_device_by_kid(VFAT);
     if (vfs_read_blocks(buf, blockdevice, 1, 0)) {
         tempmount.extra = kmalloc(sizeof(struct fat_info));
         fatinfopointer = (struct fat_info*)(tempmount.extra);
@@ -78,7 +77,6 @@ int vfat_attempt_mount(struct vfs_block_device* blockdevice, const uint8_t rw) {
 
 void vfat_init(void) {
     vfat_vfsdrvinfo.mount = vfat_attempt_mount;
-    vfat_vfsdrvinfo.devicedriver = devreg_find_device_by_kid(VFAT);
 }
 
 #endif
