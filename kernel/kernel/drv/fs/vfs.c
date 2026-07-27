@@ -30,16 +30,14 @@ struct vfs_block_device *vfs_blockdevices;
 uint32_t vfs_last_blockdevice;
 uint32_t blockdevices_size;
 
-void vfs_init(void) {
-    vfs_blockdevices = (struct vfs_block_device*)kmalloc(sizeof(struct vfs_block_device) * DEFAULT_BLOCKDEVICES_SIZE);
-    blockdevices_size = DEFAULT_BLOCKDEVICES_SIZE;
-    vfs_last_blockdevice = 0;
-}
+struct vfs_fs_driver **vfs_fsdrivers;
+uint32_t vfs_fsdrivers_loc;
+uint32_t vfs_fsdrivers_size;
 
 struct vfs_block_device *vfs_find_block_device_by_path(const char* path) {
     char buf[17];
     for (size_t i = 0; i < strlen(path); i++) {
-        if (path[i] == '@') { // paths look like volume@folder/file
+        if (path[i] == ':') { // paths look like volume:folder/file
             buf[i] = 0;
             break;
         }
@@ -74,6 +72,24 @@ struct vfs_block_device *vfs_find_block_device_by_name(const char* name) {
     return NULL;
 }
 
+void vfs_append_directory(struct vfs_directory* parent, struct vfs_directory* child) {
+    if (parent->directories_size <= parent->directories_len) {
+        parent->directories_size += 32;
+        parent->directories = (struct vfs_directory**)krealloc(parent->directories, sizeof(struct vfs_directory**) * parent->directories_size);
+    }
+    parent->directories[parent->directories_len] = child;
+    parent->directories_len++;
+}
+
+void vfs_append_directory_file(struct vfs_directory* parent, struct vfs_file* child) {
+    if (parent->files_size <= parent->files_len) {
+        parent->files_size += 32;
+        parent->files = (struct vfs_file**)krealloc(parent->files, sizeof(struct vfs_file**) * parent->files_size);
+    }
+    parent->files[parent->files_len] = child;
+    parent->files_len++;
+}
+
 uint32_t vfs_register_blockdevice(struct vfs_block_device *newblockdevice) {
     // need to do this weird thing or else two of these calls running at the same time would cause scary implosion of both block devices
     __sync_fetch_and_add(&vfs_last_blockdevice, 1);
@@ -95,21 +111,187 @@ struct vfs_mount_point *vfs_mount_direct(struct vfs_block_device *blockdevice, c
     return blockdevice->mountpoint;
 }
 
-/*struct vfs_mount_point *vfs_mount(struct vfs_block_device *blockdevice) {
-    
+struct vfs_mount_point *vfs_mount(struct vfs_block_device *blockdevice, const struct vfs_fs_driver *fsdriver, const uint8_t rw, const char* name) {
+    if (!fsdriver->mount(blockdevice, rw)) {
+        blockdevice->mounted = 1;
+        strncpy(blockdevice->mountpoint->name, name, 16);
+        blockdevice->mountpoint->name[16] = 0;
+        return blockdevice->mountpoint;
+    } else { return NULL; }
+}
+
+struct vfs_mount_point *vfs_mount_by_id(uint32_t blockdevice, const struct vfs_fs_driver *fsdriver, const uint8_t rw, const char* name) {
+    return vfs_mount(&vfs_blockdevices[blockdevice], fsdriver, rw, name);
+}
+
+struct vfs_fs_driver *vfs_detect_fs(struct vfs_block_device *blockdevice) {
+    for (uint32_t i = 0; i < vfs_fsdrivers_loc; i++) {
+        if (vfs_fsdrivers[i]->isvalid(blockdevice)) {
+            return vfs_fsdrivers[i];
+        }
+    }
     return NULL;
-}*/
+}
 
-/*struct vfs_mount_point *vfs_mount_by_id(uint32_t blockdevice) {
-    return vfs_mount(&vfs_blockdevices[blockdevice]);
-}*/
+uint32_t vfs_register_fsdriver(struct vfs_fs_driver *fsdriver) {
+    // need to do this weird thing or else two of these calls running at the same time could cause scary implosion of both fs driver pointers
+    __sync_fetch_and_add(&vfs_fsdrivers_loc, 1);
 
-/*FILE *vfs_get_file(const char *filename, const char *mode) {
-    //struct vfs_block_device *fdevice = vfs_find_block_device_by_path(filename)->mountpoint;
-    // FILE isn't a real thing yet
+    if (vfs_fsdrivers_loc-1 >= vfs_fsdrivers_size) {
+        vfs_fsdrivers = (struct vfs_fs_driver**)krealloc((void*)vfs_fsdrivers, sizeof(struct vfs_fs_driver*) * (vfs_fsdrivers_size + 32));
+        vfs_fsdrivers_size = vfs_fsdrivers_size + 32;
+    }
+    vfs_fsdrivers[vfs_fsdrivers_loc-1] = fsdriver;
+    return vfs_fsdrivers_loc-1;
+}
+
+struct vfs_file *vfs_find_file(const char *path) {
+    struct vfs_block_device *bd = vfs_find_block_device_by_path(path);
+
+    size_t len = strlen(path) + 1;
+    char *pathdup = (char*)kmalloc(len);
+    memcpy(pathdup, path, len);
+
+    char *entry = strtok(pathdup, "/");
+    struct vfs_file *found = NULL;
+    struct vfs_directory *searchdir = bd->mountpoint->root;
+    int set = 0;
+
+    while (entry != NULL) {
+        if (!strcmp(entry, "")) { // ignore any empty entries
+            set = 0;
+            for (uint32_t i = 0; i < searchdir->files_len; i++) {
+                if (!strcmp(searchdir->files[i]->name, entry)) {
+                    found = searchdir->files[i];
+                    set = 1;
+                }
+            }
+            for (uint32_t i = 0; i < searchdir->directories_len; i++) {
+                if (!strcmp(searchdir->directories[i]->name, entry)) {
+                    searchdir = searchdir->directories[i];
+                }
+            }
+        }
+        entry = strtok(NULL, "/");
+        if ((entry == NULL) && (set == 0)) {
+            searchdir = NULL; // we didn't find the file on the last entry in the path, so it doesn't exist
+        }
+    }
+
+    kfree(pathdup);
+    return found;
+}
+
+struct vfs_directory *vfs_find_directory(const char *path) {
+    struct vfs_block_device *bd = vfs_find_block_device_by_path(path);
+
+    size_t len = strlen(path) + 1;
+    char *pathdup = (char*)kmalloc(len);
+    memcpy(pathdup, path, len);
+
+    char *entry = strtok(pathdup, "/");
+    struct vfs_directory *searchdir = bd->mountpoint->root;
+    int set = 0;
+
+    while (entry != NULL) {
+        if (!strcmp(entry, "")) { // ignore any empty entries
+            set = 0;
+            for (uint32_t i = 0; i < searchdir->directories_len; i++) {
+                if (!strcmp(searchdir->directories[i]->name, entry)) {
+                    searchdir = searchdir->directories[i];
+                    set = 1;
+                }
+            }
+        }
+        entry = strtok(NULL, "/");
+        if ((entry == NULL) && (set == 0)) {
+            searchdir = NULL; // we didn't find the directory on the last entry in the path, so it doesn't exist
+        }
+    }
+
+    kfree(pathdup);
+    return searchdir;
+}
+
+struct vfs_file *vfs_create_file(const char *path) {
+    struct vfs_mount_point *fmount = vfs_find_block_device_by_path(path)->mountpoint;
+    if (fmount == NULL) return NULL;
+    return fmount->fsdriver->createfile(fmount, path);
+}
+
+struct vfs_directory *vfs_create_directory(const char *path) {
+    struct vfs_mount_point *fmount = vfs_find_block_device_by_path(path)->mountpoint;
+    if (fmount == NULL) return NULL;
+    return fmount->fsdriver->createdirectory(fmount, path);
+}
+
+FILE *vfs_open_file(const char *path, const char *mode) {
+    struct vfs_mount_point *fmount = vfs_find_block_device_by_path(path)->mountpoint;
+    if (fmount == NULL) return NULL;
+    struct vfs_file *vfsfile = vfs_find_file(path);
+
+    if (!strcmp("r",mode)) {
+        if (vfsfile == NULL) return NULL;
+        return fmount->fsdriver->getfile(fmount, VFS_FILE_MODE_READ, vfsfile);
+    }
+    if (!strcmp("w",mode)) {
+        if (vfsfile == NULL) vfsfile = vfs_create_file(path);
+        if (vfsfile == NULL) return NULL;
+        return fmount->fsdriver->getfile(fmount, VFS_FILE_MODE_WRITE | VFS_FILE_MODE_TRUNCATE, vfsfile);
+    }
+    if (!strcmp("a",mode)) {
+        if (vfsfile == NULL) vfsfile = vfs_create_file(path);
+        if (vfsfile == NULL) return NULL;
+        return fmount->fsdriver->getfile(fmount, VFS_FILE_MODE_WRITE | VFS_FILE_MODE_APPEND, vfsfile);
+    }
+    if (!strcmp("r+",mode)) {
+        if (vfsfile == NULL) return NULL;
+        return fmount->fsdriver->getfile(fmount, VFS_FILE_MODE_READ | VFS_FILE_MODE_WRITE, vfsfile);
+    }
+    if (!strcmp("w+",mode)) {
+        if (vfsfile == NULL) vfsfile = vfs_create_file(path);
+        if (vfsfile == NULL) return NULL;
+        return fmount->fsdriver->getfile(fmount, VFS_FILE_MODE_READ | VFS_FILE_MODE_WRITE | VFS_FILE_MODE_TRUNCATE, vfsfile);
+    }
+    if (!strcmp("a+",mode)) {
+        if (vfsfile == NULL) vfsfile = vfs_create_file(path);
+        if (vfsfile == NULL) return NULL;
+        return fmount->fsdriver->getfile(fmount, VFS_FILE_MODE_READ | VFS_FILE_MODE_WRITE | VFS_FILE_MODE_APPEND, vfsfile);
+    }
+
+    // handle binary modes (these are treated the same way)
+    if (!strcmp("rb",mode)) {
+        if (vfsfile == NULL) return NULL;
+        return fmount->fsdriver->getfile(fmount, VFS_FILE_MODE_READ, vfsfile);
+    }
+    if (!strcmp("wb",mode)) {
+        if (vfsfile == NULL) vfsfile = vfs_create_file(path);
+        if (vfsfile == NULL) return NULL;
+        return fmount->fsdriver->getfile(fmount, VFS_FILE_MODE_WRITE | VFS_FILE_MODE_TRUNCATE, vfsfile);
+    }
+    if (!strcmp("ab",mode)) {
+        if (vfsfile == NULL) vfsfile = vfs_create_file(path);
+        if (vfsfile == NULL) return NULL;
+        return fmount->fsdriver->getfile(fmount, VFS_FILE_MODE_WRITE | VFS_FILE_MODE_APPEND, vfsfile);
+    }
+    if (!strcmp("rb+",mode)) {
+        if (vfsfile == NULL) return NULL;
+        return fmount->fsdriver->getfile(fmount, VFS_FILE_MODE_READ | VFS_FILE_MODE_WRITE, vfsfile);
+    }
+    if (!strcmp("wb+",mode)) {
+        if (vfsfile == NULL) vfsfile = vfs_create_file(path);
+        if (vfsfile == NULL) return NULL;
+        return fmount->fsdriver->getfile(fmount, VFS_FILE_MODE_READ | VFS_FILE_MODE_WRITE | VFS_FILE_MODE_TRUNCATE, vfsfile);
+    }
+    if (!strcmp("ab+",mode)) {
+        if (vfsfile == NULL) vfsfile = vfs_create_file(path);
+        if (vfsfile == NULL) return NULL;
+        return fmount->fsdriver->getfile(fmount, VFS_FILE_MODE_READ | VFS_FILE_MODE_WRITE | VFS_FILE_MODE_APPEND, vfsfile);
+    }
+
+    // invalid mode
     return NULL;
-}*/
-
+}
 
 uint32_t vfs_read_blocks(unsigned char *dest, const struct vfs_block_device *blockdevice, const uint32_t blocks, const uint32_t index) {
     uint32_t bytesread = 0;
@@ -126,5 +308,15 @@ uint32_t vfs_write_blocks(unsigned char *data, const struct vfs_block_device *bl
     }
     return byteswritten;
 } 
+
+void vfs_init(void) {
+    vfs_blockdevices = (struct vfs_block_device*)kmalloc(sizeof(struct vfs_block_device) * DEFAULT_BLOCKDEVICES_SIZE);
+    blockdevices_size = DEFAULT_BLOCKDEVICES_SIZE;
+    vfs_last_blockdevice = 0;
+
+    vfs_fsdrivers = (struct vfs_fs_driver**)kmalloc(sizeof(struct vfs_fsdriver*) * 32);
+    vfs_fsdrivers_size = 32;
+    vfs_fsdrivers_loc = 0;
+}
 
 #endif

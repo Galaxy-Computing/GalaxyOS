@@ -44,6 +44,10 @@ void devinit(void) {
     vfat_init();
     #endif
 
+    #ifdef ISO9660
+    iso9660_init();
+    #endif
+
     log_ok("Device initialization complete.");
 }
 

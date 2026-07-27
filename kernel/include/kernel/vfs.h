@@ -7,10 +7,20 @@
 #define BLOCK_READ 0
 #define BLOCK_WRITE 1
 
+#define VFS_FILE_MODE_READ     0b0001
+#define VFS_FILE_MODE_WRITE    0b0010
+#define VFS_FILE_MODE_APPEND   0b0100
+#define VFS_FILE_MODE_TRUNCATE 0b1000
+
+struct vfs_directory;
+struct vfs_file;
+struct vfs_fs_driver;
+
 struct vfs_mount_point {
     char name[17]; // 16 + terminator
     uint32_t blockdeviceid;
-    struct vfs_device_driver* devicedriver;
+    struct vfs_fs_driver* fsdriver;
+    struct vfs_directory* root;
     void* extra; // Usable by the FS driver to point to any extra information
     uint8_t rw;
 };
@@ -45,9 +55,45 @@ struct vfs_block_device {
 
 typedef uint32_t (*vfs_block)(unsigned char*, const struct vfs_block_device*, const uint8_t, const uint32_t);
 typedef int (*vfs_fs_mount)(struct vfs_block_device*, const uint8_t);
+typedef FILE* (*vfs_fs_getfile)(struct vfs_mount_point*, const uint8_t, struct vfs_file*);
+typedef int (*vfs_fs_accessfile)(struct vfs_mount_point*, const uint8_t, FILE*, unsigned char*, const uint32_t);
+typedef struct vfs_file *(*vfs_fs_createfile)(struct vfs_mount_point*, const char*);
+typedef struct vfs_directory *(*vfs_fs_createdirectory)(struct vfs_mount_point*, const char*);
+typedef int (*vfs_fs_isvalid)(struct vfs_block_device*);
 
 struct vfs_fs_driver {
     vfs_fs_mount mount;
+    vfs_fs_getfile getfile;
+    vfs_fs_accessfile accessfile;
+    vfs_fs_createfile createfile;
+    vfs_fs_createdirectory createdirectory;
+    vfs_fs_isvalid isvalid;
+    char* name;
+};
+
+struct vfs_directory {
+    char* name;
+    struct vfs_directory* parent; // this is set to 0 if this is the root of the drive
+    struct vfs_mount_point* volume;
+    struct vfs_file** files;
+    struct vfs_directory** directories;
+    uint32_t files_len;
+    uint32_t files_size;
+    uint32_t directories_len;
+    uint32_t directories_size;
+    uint32_t id;
+    uint8_t attributes;
+};
+
+struct vfs_file {
+    char* name;
+    struct vfs_directory* parent;
+    struct vfs_mount_point* volume;
+    uint32_t id;
+    uint32_t size;
+    uint32_t created_time;
+    uint32_t modified_time;
+    uint8_t attributes; // 1 = hidden
 };
 
 extern struct vfs_block_device *vfs_blockdevices;
@@ -56,10 +102,15 @@ extern uint32_t vfs_last_blockdevice;
 void vfs_init(void);
 struct vfs_block_device *vfs_find_block_device_by_path(const char* path);
 struct vfs_block_device *vfs_find_block_device_by_name(const char* name);
+void vfs_append_directory(struct vfs_directory* parent, struct vfs_directory* child);
+void vfs_append_directory_file(struct vfs_directory* parent, struct vfs_file* child);
 struct vfs_mount_point *vfs_get_mount_info(uint32_t mountid);
 struct vfs_mount_point *vfs_mount_direct(struct vfs_block_device *blockdevice, const struct vfs_mount_point *mp);
-FILE *vfs_get_file(const char *filename, const char *mode);
+FILE *vfs_open_file(const char *filename, const char *mode);
 uint32_t vfs_register_blockdevice(struct vfs_block_device *newblockdevice);
+uint32_t vfs_register_fsdriver(struct vfs_fs_driver *fsdriver);
+struct vfs_fs_driver *vfs_detect_fs(struct vfs_block_device *blockdevice);
+struct vfs_mount_point *vfs_mount(struct vfs_block_device *blockdevice, const struct vfs_fs_driver *fsdriver, const uint8_t rw, const char* name);
 
 uint32_t vfs_read_blocks(unsigned char *dest, const struct vfs_block_device* blockdevice, const uint32_t blocks, const uint32_t index);
 uint32_t vfs_write_blocks(unsigned char *data, const struct vfs_block_device* blockdevice, const uint32_t blocks, const uint32_t index);

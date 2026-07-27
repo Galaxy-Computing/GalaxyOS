@@ -4,13 +4,21 @@
 #include <sys/cdefs.h>
 #include <stdarg.h>
 #include <stddef.h>
+#include <stdint.h>
 
 #define EOF (-1)
 #define SEEK_SET 0
 
 typedef struct _iobuf
 {
-    // todo: add the fields here. this struct is platform specific, so we can do whatever we want with this.
+    int id;
+    char* buffer;
+    int buffer_size;
+    char* ptr;
+    int count;
+    uint32_t total_size;
+    uint8_t mode; // 1 = read 2 = write 4 = append 8 = truncate
+    uint8_t flags; // 1 = eof 2 = err
 } FILE;
 
 #ifdef __cplusplus

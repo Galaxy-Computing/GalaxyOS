@@ -51,6 +51,9 @@ void dbgsh_main(void) {
             printf("memk       - list memory usage (kb)\n");
             printf("lsblk      - list block devices\n");
             printf("blocktest  - test block device\n");
+            printf("lsmount    - list mountpoints\n");
+            printf("mount      - mount device\n");
+            printf("lsroot     - list root of mountpoint\n");
         }
         else if (!strcmp(cmd, "ps")) {
             printf("id pl name\n");
@@ -97,6 +100,67 @@ void dbgsh_main(void) {
             } else {
                 printf("no block devices\n");
             }
+        }
+        else if (!strcmp(cmd, "lsmount")) {
+            if (vfs_last_blockdevice) {
+                int mounted = 0;
+                for (uint32_t i = 0; i < vfs_last_blockdevice; i++) {
+                    if (vfs_blockdevices[i].mounted) {
+                        printf(vfs_blockdevices[i].name);
+                        printf(" -> ");
+                        printf(vfs_blockdevices[i].mountpoint->name);
+                        printf("\n");
+                        mounted = 1;
+                    }
+                }
+                if (!mounted) { printf("no mounted devices\n"); }
+            } else {
+                printf("no block devices\n");
+            }
+        }
+        else if (!strcmp(cmd, "mount")) {
+            printf("device: ");
+            term_readline(cmdbuf, 256);
+            struct vfs_block_device* bd = vfs_find_block_device_by_name(cmdbuf);
+            if (bd == NULL) {
+                printf("device doesn't exist\n");
+                continue;
+            }
+            struct vfs_fs_driver* fsdriver = vfs_detect_fs(bd);
+            if (fsdriver == NULL) {
+                printf("filesystem not supported\n");
+                continue;
+            }
+            printf("filesystem ");
+            printf(fsdriver->name);
+            printf("\n");
+            printf("name: ");
+            char namebuf[16];
+            term_readline(namebuf, 16);
+            if (vfs_mount(bd, fsdriver, 0, namebuf) == NULL) {
+                printf("vfs_mount() call returned NULL\n");
+            }
+        }
+        else if (!strcmp(cmd, "lsroot")) {
+            printf("path: ");
+            term_readline(cmdbuf, 256);
+            struct vfs_block_device* bd = vfs_find_block_device_by_path(cmdbuf);
+            if (bd == NULL) {
+                printf("volume doesn't exist\n");
+                continue;
+            }
+            printf("dirs: ");
+            for (uint32_t i = 0; i < bd->mountpoint->root->directories_len; i++) {
+                printf(bd->mountpoint->root->directories[i]->name);
+                printf(" ");
+            }
+            printf("\n");
+            printf("files: ");
+            for (uint32_t i = 0; i < bd->mountpoint->root->files_len; i++) {
+                printf(bd->mountpoint->root->files[i]->name);
+                printf(" ");
+            }
+            printf("\n");
         }
     }
 }

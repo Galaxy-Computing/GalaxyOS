@@ -40,6 +40,10 @@ string/strlen.o \
 string/strcmp.o \
 string/strncmp.o \
 string/strncpy.o \
+string/strtok.o \
+string/strspn.o \
+string/strpbrk.o \
+string/memchr.o \
 
 HOSTEDOBJS=\
 

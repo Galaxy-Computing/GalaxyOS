@@ -24,8 +24,6 @@
 #include <kernel/liballoc.h>
 #include <string.h>
 
-struct vfs_fs_driver vfat_vfsdrvinfo;
-
 int vfat_create_fatinfo(struct fat_info *fatinfo) {
     fatinfo->fat_size = (fatinfo->fatbs->table_size_16 == 0)? ((fat_extBS_32_t*)&(fatinfo->fatbs->extended_section))->table_size_32 : fatinfo->fatbs->table_size_16;
     fatinfo->total_sectors = (fatinfo->fatbs->total_sectors_16 == 0)? fatinfo->fatbs->total_sectors_32 : fatinfo->fatbs->total_sectors_16;
@@ -75,8 +73,13 @@ int vfat_attempt_mount(struct vfs_block_device* blockdevice, const uint8_t rw) {
     return 1;
 }
 
+struct vfs_fs_driver vfat_vfsdrvinfo = {
+    .mount = &vfat_attempt_mount,
+    .name = "VFAT"
+};
+
 void vfat_init(void) {
-    vfat_vfsdrvinfo.mount = vfat_attempt_mount;
+    
 }
 
 #endif

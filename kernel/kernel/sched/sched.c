@@ -191,18 +191,18 @@ uint32_t sched_find_next_tid(void) {
     if (queue_end-queue_loc > 0) {
         return queue[queue_loc];
     }
-    return 0; // no threads exist
+    return 0; // no threads are left
 }
 
 uint32_t sched_pop_next_tid(void) {
     if (queue_end-queue_loc > 0) {
         return queue[queue_loc++];
     }
-    return 0; // no processes exist
+    return 0; // no threads are left
 }
 
 void sched_check_suspended_threads(uint8_t irq) {
-    for (int i = 0; i < last_tid-1; i++) {
+    for (uint32_t i = 0; i < last_tid-1; i++) {
         if (threads[i]->state == THREAD_STATE_SUSPENDED) {
             if (threads[i]->irq_wait == irq) {
                 threads[i]->state = THREAD_STATE_RUNNING;
@@ -213,13 +213,20 @@ void sched_check_suspended_threads(uint8_t irq) {
 
 void sched_pick_next(void) {
     currenttid = 0;
+    int loop = 0;
     while (!currenttid) {
         uint32_t nexttid = sched_pop_next_tid();
         if (!nexttid) {
+            if (loop) {
+                // we have no active threads
+                nexttid = idletid;
+            }
             // refresh the queue
             queue_loc = queue_start;
             nexttid = sched_pop_next_tid();
+            loop = 1;
             if (!nexttid) {
+                // there are no threads in the queue
                 nexttid = idletid;
             }
         }

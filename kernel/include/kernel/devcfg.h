@@ -14,6 +14,7 @@
 #define ATAPIO  5 // ATAPIO interface
 #define VFAT    7 // VFAT FS driver
 #define ATAPI   8 // ATAPI driver
+#define ISO9660 9 // ISO9660 FS driver
 
 // TTY drivers
 #define VGATEXT 6 // VGA text terminal
@@ -50,6 +51,10 @@
 
 #ifdef ATAPI
 #include <kernel/atapi.h>
+#endif
+
+#ifdef ISO9660
+#include <kernel/iso9660.h>
 #endif
 
 void devinit(void);

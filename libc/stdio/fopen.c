@@ -6,7 +6,7 @@
 
 FILE *fopen(const char *filename, const char *mode) {
     #if defined(__is_libk)
-    return vfs_get_file(filename, mode);
+    return vfs_open_file(filename, mode);
     #else
     
     #endif

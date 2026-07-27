@@ -44,7 +44,7 @@ char scancodelower[] = {
     0,'n','b','h',
     'g','y','6',0,
     0,0,'m','j',
-    'u',0,'7','8',
+    'u','7','8',0,
     0,',','k','i',
     'o','0','9',0,
     0,'.','/','l',
@@ -57,7 +57,45 @@ char scancodelower[] = {
     0,0,0x7F,0,
     0,'1',0,'4',
     '7',0,0,0,
-    0,'.','2','5',
+    '0','.','2','5',
+    '6','8',0,0,
+    0,'+','3','-',
+    '*','9',0,0
+};
+
+char scancodeupper[] = {
+    0,0,0,0,
+    0,0,0,0,
+    0,0,0,0,
+    0,'\t','~',0,
+    0,0,0,0,
+    0,'Q','!',0,
+    0,0,'Z','S',
+    'A','W','@',0,
+    0,'C','X','D',
+    'E','$','#',0,
+    0,' ','V','F',
+    'T','R','%',0,
+    0,'N','B','H',
+    'G','Y','^',0,
+    0,0,'M','J',
+    'U','&','*',0,
+    0,'<','K','I',
+    'O',')','(',0,
+    0,'>','?','L',
+    ':','P','_',0,
+    0,0,'\"',0,
+    '{','+',0,0,
+    0,0,'\n','}',
+    0,'|',0,0,
+    0,0,0,0,
+    0,0,0x7F,0,
+    0,'1',0,'4',
+    '7',0,0,0,
+    '0','.','2','5',
+    '6','8',0,0,
+    0,'+','3','-',
+    '*','9',0,0
 };
 
 bool keydown[256];
@@ -125,12 +163,17 @@ void ps2kb_handler(struct regs *r) {
             } else if (key == 0xE0) {
                 state = 2;
             } else {
-                keydown[key] = true;
-                keybuf[keybuf_end++] = scancodelower[key];
+                if (key == 0x58) { keydown[key] = !keydown[key]; }
+                else { keydown[key] = true; }
+                if (keydown[0x12] || keydown[0x59] || keydown[0x58]) {
+                    if (scancodeupper[key]) keybuf[keybuf_end++] = scancodeupper[key];
+                } else {
+                    if (scancodelower[key]) keybuf[keybuf_end++] = scancodelower[key];
+                }
                 keybuf_end = keybuf_end % KEYBUF_SIZE;
             }
         } else if (state == 1) {
-            keydown[key] = false;
+            if (key != 0x58) keydown[key] = false;
             state = 0;
         } else {
             state = 0;
@@ -183,6 +226,7 @@ void ps2kb_init(void) {
     command_queue_end = 0;
     command_queue_start = 0;
     is_sending_command = false;
+    keydown[0x58] = false;
 
     ps2kb_send_command(0xF0); // set scancode set
     ps2kb_send_command(0x02); // 2

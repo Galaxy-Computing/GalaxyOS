@@ -32,7 +32,7 @@ uint32_t rdisk_block(unsigned char* data, const struct vfs_block_device* blockde
         if (blockdevice->ispartition) {
             memcpy(((char*)(blockdevice->extraa))+(index*RDISK_BLOCK_SIZE), data, RDISK_BLOCK_SIZE);
         } else {
-            // not supported yet
+            // this isn't a partition table driver
             return 0;
         }
     } else {
@@ -40,7 +40,7 @@ uint32_t rdisk_block(unsigned char* data, const struct vfs_block_device* blockde
         if (blockdevice->ispartition) {
             memcpy(data, ((char*)(blockdevice->extraa))+(index*RDISK_BLOCK_SIZE), RDISK_BLOCK_SIZE);
         } else {
-            // not supported yet
+            // this isn't a partition table driver
             return 0;
         }
     }
