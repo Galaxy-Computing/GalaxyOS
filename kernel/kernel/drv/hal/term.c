@@ -68,3 +68,10 @@ size_t term_readline(char *buf, size_t size) {
     }
     return bytes_read;
 }
+
+void term_clear(void) {
+    #ifdef VGATEXT
+    terminal_clear();
+    return;
+    #endif
+}

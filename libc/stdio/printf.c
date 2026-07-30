@@ -18,14 +18,12 @@ static bool sprint(char* str, const char* data, size_t length, int index) {
     return true;
 }
 
-char buf[11]; 
-
 int printf(const char* restrict format, ...) {
     va_list parameters;
     va_start(parameters, format);
 
     int written = 0;
-
+    char buf[11]; 
     while (*format != '\0') {
         size_t maxrem = INT_MAX - written;
 
@@ -108,7 +106,7 @@ int sprintf(char *str, const char* restrict format, ...) {
     va_start(parameters, format);
 
     int written = 0;
-
+    char buf[11]; 
     while (*format != '\0') {
         size_t maxrem = INT_MAX - written;
 

@@ -44,6 +44,7 @@ string/strtok.o \
 string/strspn.o \
 string/strpbrk.o \
 string/memchr.o \
+ctype/tolower.o \
 
 HOSTEDOBJS=\
 

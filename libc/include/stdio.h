@@ -16,7 +16,6 @@ typedef struct _iobuf
     int buffer_size;
     char* ptr;
     int count;
-    uint32_t total_size;
     uint8_t mode; // 1 = read 2 = write 4 = append 8 = truncate
     uint8_t flags; // 1 = eof 2 = err
 } FILE;

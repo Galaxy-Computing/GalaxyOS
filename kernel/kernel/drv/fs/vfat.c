@@ -51,7 +51,7 @@ int vfat_create_fatinfo(struct fat_info *fatinfo) {
     return 0;
 }
 
-int vfat_attempt_mount(struct vfs_block_device* blockdevice, const uint8_t rw) {
+int vfat_attempt_mount(struct vfs_block_device* blockdevice, const bool rw) {
     unsigned char buf[blockdevice->blocksize];
     struct vfs_mount_point tempmount;
     struct fat_info* fatinfopointer;

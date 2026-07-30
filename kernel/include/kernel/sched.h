@@ -2,6 +2,7 @@
 #define _KERNEL_SCHED_H
 
 #include <stdint.h>
+#include <kernel/vfs.h>
 
 struct process {
     char *name;
@@ -15,6 +16,11 @@ struct process {
     uint32_t entrypoint;
 
     uint8_t privilege_level;
+
+    // vfs stuff here
+    struct vfs_file_open **openfiles;
+    int openfiles_loc;
+    int openfiles_size;
 };
 
 struct thread {
@@ -37,6 +43,7 @@ void sched_suspend_thread(uint8_t irq, uint32_t tid);
 void sched_suspend_current_thread(uint8_t irq);
 
 extern uint32_t currenttid;
+extern struct process *currentps;
 
 extern struct process **processes;
 extern uint32_t processes_size;

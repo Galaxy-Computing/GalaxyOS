@@ -57,6 +57,7 @@ uint32_t queue_loc;
 uint32_t queue_end;
 
 uint32_t currenttid;
+struct process *currentps;
 
 uint32_t idletid;
 
@@ -153,6 +154,10 @@ uint32_t sched_create_process(uint8_t privilege, const char* name) {
     processes[last_pid-1]->cr3_virt = (uint32_t*)liballoc_alloc(1); // this gives us a page aligned 4k block of memory for our page directory
     processes[last_pid-1]->cr3 = (uint32_t*)vmm_get_physaddr((address_t)processes[last_pid-1]->cr3_virt);
 
+    processes[last_pid-1]->openfiles = (struct vfs_file_open**)kmalloc(sizeof(struct vfs_file_open*) * 32);
+    processes[last_pid-1]->openfiles_size = 32;
+    processes[last_pid-1]->openfiles_loc = 0;
+
     // copy the kernel directory entries into the process page directory
     unsigned long *pd = (unsigned long *)PAGE_DIRECTORY_ADDR;
     for (int i = 768; i < 1024; i++) {
@@ -232,6 +237,7 @@ void sched_pick_next(void) {
         }
         switch (threads[nexttid-1]->state) {
             case THREAD_STATE_RUNNING:
+                currentps = processes[threads[nexttid-1]->pid-1];
                 currenttid = nexttid;
                 break;
             case THREAD_STATE_SUSPENDED:

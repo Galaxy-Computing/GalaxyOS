@@ -22,6 +22,7 @@
 #include <kernel/liballoc.h>
 #include <string.h>
 #include <stdio.h>
+#include <fcntl.h>
 
 char cmdbuf[256];
 
@@ -44,20 +45,22 @@ void dbgsh_main(void) {
             printf("%s\n", K_VERSION);
         } 
         else if (!strcmp(cmd, "help")) {
-            printf("exit       - exit kdbgsh\n");
-            printf("ver        - display kernel version\n");
-            printf("ps         - list processes\n");
-            printf("mem        - list memory usage (mb)\n");
-            printf("memk       - list memory usage (kb)\n");
-            printf("lsblk      - list block devices\n");
-            printf("blocktest  - test block device\n");
-            printf("lsmount    - list mountpoints\n");
-            printf("mount      - mount device\n");
-            printf("lsroot     - list root of mountpoint\n");
+            printf("exit      - exit kdbgsh\n");
+            printf("ver       - display kernel version\n");
+            printf("ps        - list processes\n");
+            printf("mem       - list memory usage (mb)\n");
+            printf("memk      - list memory usage (kb)\n");
+            printf("lsblk     - list block devices\n");
+            printf("blocktest - test block device\n");
+            printf("lsmount   - list mountpoints\n");
+            printf("mount     - mount device\n");
+            printf("ls        - list directory\n");
+            printf("cat       - show file contents\n");
+            printf("clear     - clear screen\n");
         }
         else if (!strcmp(cmd, "ps")) {
             printf("id pl name\n");
-            for (int i = 0; i < last_pid-1; i++) {
+            for (uint32_t i = 0; i < last_pid-1; i++) {
                 printf("%i %i %s\n", i, processes[i]->privilege_level, processes[i]->name);
             }
         }
@@ -78,7 +81,7 @@ void dbgsh_main(void) {
             if (bd == NULL) {
                 printf("device doesn't exist\n");
             } else {
-                char* blockbuf = (char*)kmalloc(bd->blocksize);
+                unsigned char* blockbuf = (char*)kmalloc(bd->blocksize);
                 uint32_t readcount = bd->block(blockbuf, bd, 0, 16);
                 if (readcount) {
                     printf("%i bytes read successfully\n", readcount);
@@ -137,30 +140,62 @@ void dbgsh_main(void) {
             printf("name: ");
             char namebuf[16];
             term_readline(namebuf, 16);
-            if (vfs_mount(bd, fsdriver, 0, namebuf) == NULL) {
+            if (vfs_mount(bd, fsdriver, false, namebuf) == NULL) {
                 printf("vfs_mount() call returned NULL\n");
             }
         }
-        else if (!strcmp(cmd, "lsroot")) {
+        else if (!strcmp(cmd, "ls")) {
             printf("path: ");
             term_readline(cmdbuf, 256);
-            struct vfs_block_device* bd = vfs_find_block_device_by_path(cmdbuf);
-            if (bd == NULL) {
-                printf("volume doesn't exist\n");
+            struct vfs_directory* dir = vfs_find_directory(cmdbuf);
+            if (dir == NULL) {
+                printf("directory doesn't exist\n");
                 continue;
             }
-            printf("dirs: ");
-            for (uint32_t i = 0; i < bd->mountpoint->root->directories_len; i++) {
-                printf(bd->mountpoint->root->directories[i]->name);
+            printf("dirs (%i): ", dir->directories_len);
+            for (uint32_t i = 0; i < dir->directories_len; i++) {
+                printf(dir->directories[i]->name);
                 printf(" ");
             }
             printf("\n");
-            printf("files: ");
-            for (uint32_t i = 0; i < bd->mountpoint->root->files_len; i++) {
-                printf(bd->mountpoint->root->files[i]->name);
+            printf("files (%i): ", dir->files_len);
+            for (uint32_t i = 0; i < dir->files_len; i++) {
+                printf(dir->files[i]->name);
                 printf(" ");
             }
             printf("\n");
+        }
+        else if (!strcmp(cmd, "cat")) {
+            printf("path: ");
+            term_readline(cmdbuf, 256);
+            int fd = vfs_open(cmdbuf, O_RDONLY);
+            if (fd == -1) { printf("open() failed\n"); continue; }
+            struct stat *filestats = kmalloc(sizeof(struct stat));
+            if (vfs_fstat(fd, filestats) == -1) { 
+                printf("fstat() failed\n"); 
+                vfs_close(fd); 
+                kfree(filestats);
+                continue; 
+            }
+            char *data = kmalloc(filestats->st_size + 1);
+            if (vfs_read(fd, data, filestats->st_size) == -1) { 
+                printf("read() failed\n"); 
+                vfs_close(fd); 
+                kfree(filestats);
+                kfree(data);
+                continue; 
+            }
+            data[filestats->st_size] = 0;
+            printf(data);
+            printf("\n");
+            if (vfs_close(fd) == -1) { 
+                printf("close() failed\n");
+            }
+            kfree(filestats);
+            kfree(data);
+        }
+        else if (!strcmp(cmd, "clear")) {
+            term_clear();
         }
     }
 }

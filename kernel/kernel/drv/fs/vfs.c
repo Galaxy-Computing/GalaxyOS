@@ -20,6 +20,7 @@
 #include <kernel/vfs.h>
 #include <kernel/liballoc.h>
 #include <kernel/devreg.h>
+#include <kernel/sched.h>
 #include <string.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -111,7 +112,7 @@ struct vfs_mount_point *vfs_mount_direct(struct vfs_block_device *blockdevice, c
     return blockdevice->mountpoint;
 }
 
-struct vfs_mount_point *vfs_mount(struct vfs_block_device *blockdevice, const struct vfs_fs_driver *fsdriver, const uint8_t rw, const char* name) {
+struct vfs_mount_point *vfs_mount(struct vfs_block_device *blockdevice, const struct vfs_fs_driver *fsdriver, const bool rw, const char* name) {
     if (!fsdriver->mount(blockdevice, rw)) {
         blockdevice->mounted = 1;
         strncpy(blockdevice->mountpoint->name, name, 16);
@@ -120,7 +121,7 @@ struct vfs_mount_point *vfs_mount(struct vfs_block_device *blockdevice, const st
     } else { return NULL; }
 }
 
-struct vfs_mount_point *vfs_mount_by_id(uint32_t blockdevice, const struct vfs_fs_driver *fsdriver, const uint8_t rw, const char* name) {
+struct vfs_mount_point *vfs_mount_by_id(uint32_t blockdevice, const struct vfs_fs_driver *fsdriver, const bool rw, const char* name) {
     return vfs_mount(&vfs_blockdevices[blockdevice], fsdriver, rw, name);
 }
 
@@ -152,27 +153,28 @@ struct vfs_file *vfs_find_file(const char *path) {
     char *pathdup = (char*)kmalloc(len);
     memcpy(pathdup, path, len);
 
-    char *entry = strtok(pathdup, "/");
+    char *strptr = NULL;
+    strtok_r(pathdup, ":", &strptr); // this is just to get rid of the volume identifier
+
+    char *entry = strtok_r(NULL, "/", &strptr);
     struct vfs_file *found = NULL;
     struct vfs_directory *searchdir = bd->mountpoint->root;
     int set = 0;
 
     while (entry != NULL) {
-        if (!strcmp(entry, "")) { // ignore any empty entries
-            set = 0;
-            for (uint32_t i = 0; i < searchdir->files_len; i++) {
-                if (!strcmp(searchdir->files[i]->name, entry)) {
-                    found = searchdir->files[i];
-                    set = 1;
-                }
-            }
-            for (uint32_t i = 0; i < searchdir->directories_len; i++) {
-                if (!strcmp(searchdir->directories[i]->name, entry)) {
-                    searchdir = searchdir->directories[i];
-                }
+        set = 0;
+        for (uint32_t i = 0; i < searchdir->files_len; i++) {
+            if (!strcmp(searchdir->files[i]->name, entry)) {
+                found = searchdir->files[i];
+                set = 1;
             }
         }
-        entry = strtok(NULL, "/");
+        for (uint32_t i = 0; i < searchdir->directories_len; i++) {
+            if (!strcmp(searchdir->directories[i]->name, entry)) {
+                searchdir = searchdir->directories[i];
+            }
+        }
+        entry = strtok_r(NULL, "/", &strptr);
         if ((entry == NULL) && (set == 0)) {
             searchdir = NULL; // we didn't find the file on the last entry in the path, so it doesn't exist
         }
@@ -189,21 +191,22 @@ struct vfs_directory *vfs_find_directory(const char *path) {
     char *pathdup = (char*)kmalloc(len);
     memcpy(pathdup, path, len);
 
-    char *entry = strtok(pathdup, "/");
+    char *strptr = NULL;
+    strtok_r(pathdup, ":", &strptr); // this is just to get rid of the volume identifier
+
+    char *entry = strtok_r(NULL, "/", &strptr);
     struct vfs_directory *searchdir = bd->mountpoint->root;
     int set = 0;
 
     while (entry != NULL) {
-        if (!strcmp(entry, "")) { // ignore any empty entries
-            set = 0;
-            for (uint32_t i = 0; i < searchdir->directories_len; i++) {
-                if (!strcmp(searchdir->directories[i]->name, entry)) {
-                    searchdir = searchdir->directories[i];
-                    set = 1;
-                }
+        set = 0;
+        for (uint32_t i = 0; i < searchdir->directories_len; i++) {
+            if (!strcmp(searchdir->directories[i]->name, entry)) {
+                searchdir = searchdir->directories[i];
+                set = 1;
             }
         }
-        entry = strtok(NULL, "/");
+        entry = strtok_r(NULL, "/", &strptr);
         if ((entry == NULL) && (set == 0)) {
             searchdir = NULL; // we didn't find the directory on the last entry in the path, so it doesn't exist
         }
@@ -225,72 +228,46 @@ struct vfs_directory *vfs_create_directory(const char *path) {
     return fmount->fsdriver->createdirectory(fmount, path);
 }
 
-FILE *vfs_open_file(const char *path, const char *mode) {
+int vfs_open(const char *path, int flags) {
     struct vfs_mount_point *fmount = vfs_find_block_device_by_path(path)->mountpoint;
-    if (fmount == NULL) return NULL;
+    if (fmount == NULL) return -1;
+
     struct vfs_file *vfsfile = vfs_find_file(path);
+    if (vfsfile->open) return -1;
 
-    if (!strcmp("r",mode)) {
-        if (vfsfile == NULL) return NULL;
-        return fmount->fsdriver->getfile(fmount, VFS_FILE_MODE_READ, vfsfile);
+    struct vfs_file_open *vfsopenfile = kmalloc(sizeof(struct vfs_file_open));
+    vfsopenfile->file = vfsfile;
+    vfsopenfile->fsdriver = vfsfile->volume->fsdriver;
+    vfsopenfile->flags = flags;
+
+    if (flags & VFS_FILE_MODE_APPEND) {
+        vfsopenfile->loc = vfsfile->size;
+    } else {
+        vfsopenfile->loc = 0;
     }
-    if (!strcmp("w",mode)) {
-        if (vfsfile == NULL) vfsfile = vfs_create_file(path);
-        if (vfsfile == NULL) return NULL;
-        return fmount->fsdriver->getfile(fmount, VFS_FILE_MODE_WRITE | VFS_FILE_MODE_TRUNCATE, vfsfile);
-    }
-    if (!strcmp("a",mode)) {
-        if (vfsfile == NULL) vfsfile = vfs_create_file(path);
-        if (vfsfile == NULL) return NULL;
-        return fmount->fsdriver->getfile(fmount, VFS_FILE_MODE_WRITE | VFS_FILE_MODE_APPEND, vfsfile);
-    }
-    if (!strcmp("r+",mode)) {
-        if (vfsfile == NULL) return NULL;
-        return fmount->fsdriver->getfile(fmount, VFS_FILE_MODE_READ | VFS_FILE_MODE_WRITE, vfsfile);
-    }
-    if (!strcmp("w+",mode)) {
-        if (vfsfile == NULL) vfsfile = vfs_create_file(path);
-        if (vfsfile == NULL) return NULL;
-        return fmount->fsdriver->getfile(fmount, VFS_FILE_MODE_READ | VFS_FILE_MODE_WRITE | VFS_FILE_MODE_TRUNCATE, vfsfile);
-    }
-    if (!strcmp("a+",mode)) {
-        if (vfsfile == NULL) vfsfile = vfs_create_file(path);
-        if (vfsfile == NULL) return NULL;
-        return fmount->fsdriver->getfile(fmount, VFS_FILE_MODE_READ | VFS_FILE_MODE_WRITE | VFS_FILE_MODE_APPEND, vfsfile);
+    
+    vfsfile->open = true;
+
+    if (currentps->openfiles_loc >= currentps->openfiles_size) {
+        currentps->openfiles = (struct vfs_file_open**)krealloc((void*)currentps->openfiles, sizeof(struct vfs_file_open*) * (currentps->openfiles_size + 32));
+        currentps->openfiles_size = currentps->openfiles_size + 32;
     }
 
-    // handle binary modes (these are treated the same way)
-    if (!strcmp("rb",mode)) {
-        if (vfsfile == NULL) return NULL;
-        return fmount->fsdriver->getfile(fmount, VFS_FILE_MODE_READ, vfsfile);
-    }
-    if (!strcmp("wb",mode)) {
-        if (vfsfile == NULL) vfsfile = vfs_create_file(path);
-        if (vfsfile == NULL) return NULL;
-        return fmount->fsdriver->getfile(fmount, VFS_FILE_MODE_WRITE | VFS_FILE_MODE_TRUNCATE, vfsfile);
-    }
-    if (!strcmp("ab",mode)) {
-        if (vfsfile == NULL) vfsfile = vfs_create_file(path);
-        if (vfsfile == NULL) return NULL;
-        return fmount->fsdriver->getfile(fmount, VFS_FILE_MODE_WRITE | VFS_FILE_MODE_APPEND, vfsfile);
-    }
-    if (!strcmp("rb+",mode)) {
-        if (vfsfile == NULL) return NULL;
-        return fmount->fsdriver->getfile(fmount, VFS_FILE_MODE_READ | VFS_FILE_MODE_WRITE, vfsfile);
-    }
-    if (!strcmp("wb+",mode)) {
-        if (vfsfile == NULL) vfsfile = vfs_create_file(path);
-        if (vfsfile == NULL) return NULL;
-        return fmount->fsdriver->getfile(fmount, VFS_FILE_MODE_READ | VFS_FILE_MODE_WRITE | VFS_FILE_MODE_TRUNCATE, vfsfile);
-    }
-    if (!strcmp("ab+",mode)) {
-        if (vfsfile == NULL) vfsfile = vfs_create_file(path);
-        if (vfsfile == NULL) return NULL;
-        return fmount->fsdriver->getfile(fmount, VFS_FILE_MODE_READ | VFS_FILE_MODE_WRITE | VFS_FILE_MODE_APPEND, vfsfile);
-    }
+    currentps->openfiles[currentps->openfiles_loc] = vfsopenfile;
+    vfsopenfile->id = currentps->openfiles_loc;
+    currentps->openfiles_loc++;
 
-    // invalid mode
-    return NULL;
+    return currentps->openfiles_loc - 1;
+}
+
+int vfs_close(int fd) {
+    if (!(currentps->openfiles_loc > fd)) return -1;
+    if (currentps->openfiles[fd] == NULL) return -1;
+
+    currentps->openfiles[fd]->file->open = false;
+    kfree(currentps->openfiles[fd]);
+    currentps->openfiles[fd] = NULL;
+    return 0;
 }
 
 uint32_t vfs_read_blocks(unsigned char *dest, const struct vfs_block_device *blockdevice, const uint32_t blocks, const uint32_t index) {
@@ -309,6 +286,35 @@ uint32_t vfs_write_blocks(unsigned char *data, const struct vfs_block_device *bl
     return byteswritten;
 } 
 
+ssize_t vfs_read(int fd, void *buf, size_t count) {
+    if (!(currentps->openfiles_loc > fd)) return -1;
+    if (currentps->openfiles[fd] == NULL) return -1;
+
+    ssize_t bytesread = currentps->openfiles[fd]->fsdriver->accessfile(currentps->openfiles[fd]->file->volume->blockdevice, false, currentps->openfiles[fd]->file, buf, count, currentps->openfiles[fd]->loc);
+    currentps->openfiles[fd]->loc += bytesread;
+    return bytesread;
+}
+
+ssize_t vfs_write(int fd, void *buf, size_t count) {
+    if (!(currentps->openfiles_loc > fd)) return -1;
+    if (currentps->openfiles[fd] == NULL) return -1;
+
+    ssize_t bytesread = currentps->openfiles[fd]->fsdriver->accessfile(currentps->openfiles[fd]->file->volume->blockdevice, true, currentps->openfiles[fd]->file, buf, count, currentps->openfiles[fd]->loc);
+    currentps->openfiles[fd]->loc += bytesread;
+    return bytesread;
+}
+
+int vfs_fstat(int fd, struct stat *statbuf) {
+    if (!(currentps->openfiles_loc > fd)) return -1;
+    if (currentps->openfiles[fd] == NULL) return -1;
+
+    // todo: implement the rest of the struct
+    statbuf->st_size = currentps->openfiles[fd]->file->size;
+    statbuf->st_blksize = currentps->openfiles[fd]->file->volume->blockdevice->blocksize;
+    statbuf->st_blocks = (currentps->openfiles[fd]->file->size / currentps->openfiles[fd]->file->volume->blockdevice->blocksize) + 1;
+    return 0;
+}
+
 void vfs_init(void) {
     vfs_blockdevices = (struct vfs_block_device*)kmalloc(sizeof(struct vfs_block_device) * DEFAULT_BLOCKDEVICES_SIZE);
     blockdevices_size = DEFAULT_BLOCKDEVICES_SIZE;
@@ -317,6 +323,8 @@ void vfs_init(void) {
     vfs_fsdrivers = (struct vfs_fs_driver**)kmalloc(sizeof(struct vfs_fsdriver*) * 32);
     vfs_fsdrivers_size = 32;
     vfs_fsdrivers_loc = 0;
+
+    
 }
 
 #endif

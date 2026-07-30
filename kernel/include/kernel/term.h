@@ -6,5 +6,6 @@
 void term_write(const char* str, size_t size);
 size_t term_read(char *buf, size_t size);
 size_t term_readline(char *buf, size_t size);
+void term_clear(void);
 
 #endif

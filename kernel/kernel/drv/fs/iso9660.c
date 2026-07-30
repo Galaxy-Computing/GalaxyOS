@@ -22,17 +22,17 @@
 #include <kernel/iso9660.h>
 #include <stdio.h>
 #include <string.h>
+#include <ctype.h>
 
-int iso9660_attempt_mount(struct vfs_block_device* blockdevice, const uint8_t rw);
-FILE* iso9660_getfile(struct vfs_mount_point* mountpoint, const uint8_t mode, struct vfs_file* file);
-int iso9660_accessfile(struct vfs_mount_point* mountpoint, const uint8_t mode, FILE* descriptor, unsigned char* buffer, const uint32_t len);
+int iso9660_attempt_mount(struct vfs_block_device* blockdevice, const bool rw);
+FILE* iso9660_getfile(struct vfs_mount_point* mountpoint, const bool write, struct vfs_file* file);
+ssize_t iso9660_accessfile(struct vfs_block_device* blockdevice, const bool write, struct vfs_file *descriptor, unsigned char* buffer, const size_t len, const size_t loc);
 struct vfs_file *iso9660_createfile(struct vfs_mount_point* mountpoint, const char* path);
 struct vfs_directory *iso9660_createdirectory(struct vfs_mount_point* mountpoint, const char* path);
 int iso9660_isvalid(struct vfs_block_device *blockdevice);
 
 struct vfs_fs_driver iso9660_vfsdrvinfo = {
     .mount = &iso9660_attempt_mount,
-    .getfile = &iso9660_getfile,
     .accessfile = &iso9660_accessfile,
     .createfile = &iso9660_createfile,
     .createdirectory = &iso9660_createdirectory,
@@ -59,7 +59,7 @@ struct iso9660_directory_entry *iso9660_find_dir_entry(struct vfs_directory* dir
         if (!vfs_read_blocks(buffer, blockdevice, buffer_blocks, parententry->file_loc)) return NULL;
 
         struct iso9660_directory_entry *found = NULL;
-        int loc = 0;
+        uint32_t loc = 0;
         for (;;) {
             struct iso9660_directory_entry *current = (struct iso9660_directory_entry*)(buffer + loc);
 
@@ -71,6 +71,9 @@ struct iso9660_directory_entry *iso9660_find_dir_entry(struct vfs_directory* dir
             if (dirname == NULL) { // there's no version
                 dirname = dirid;
             }
+
+            // convert the directory name to lowercase
+            for (int i = 0; dirname[i] != '\0'; i++) dirname[i] = tolower(dirname[i]);
 
             if (!strcmp(dirname, dir->name)) {
                 found = current;
@@ -121,6 +124,9 @@ struct iso9660_directory_entry *iso9660_find_dir_entry_file(struct vfs_file* fil
         dirid[current->file_identifier_len] = 0;
         char *dirname = strtok(dirid, ";"); // strip the version
 
+        // convert the directory name to lowercase
+        for (int i = 0; dirname[i] != '\0'; i++) dirname[i] = tolower(dirname[i]);
+
         if (!strcmp(dirname, file->name)) {
             found = current;
             kfree(dirid);
@@ -154,7 +160,7 @@ void iso9660_append_files(struct vfs_directory* dir, struct vfs_block_device* bl
     uint32_t buffer_blocks = (uint32_t)round_up_integer(direntry->file_size, blockdevice->blocksize) / blockdevice->blocksize;
     if (!vfs_read_blocks(buffer, blockdevice, buffer_blocks, direntry->file_loc)) return;
 
-    int loc = 0;
+    uint32_t loc = 0;
     for (;;) {
         struct iso9660_directory_entry *current = (struct iso9660_directory_entry*)(buffer + loc);
 
@@ -163,6 +169,12 @@ void iso9660_append_files(struct vfs_directory* dir, struct vfs_block_device* bl
             strncpy(fileid, current->file_identifier, current->file_identifier_len);
             fileid[current->file_identifier_len] = 0;
             char *filename = strtok(fileid, ";"); // strip the version
+
+            int fnlen = strlen(filename);
+            if (filename[fnlen-1] == '.') filename[fnlen-1] = 0; // get rid of a trailing . if the file has no extension
+
+            // convert it to lowercase
+            for (int i = 0; filename[i] != '\0'; i++) filename[i] = tolower(filename[i]);
 
             struct vfs_file *filedescriptor = kmalloc(sizeof(struct vfs_file));
             filedescriptor->name = filename;
@@ -183,6 +195,9 @@ void iso9660_append_files(struct vfs_directory* dir, struct vfs_block_device* bl
 
             fsinfo->fentries[fsinfo->fentries_loc] = newdir;
             filedescriptor->id = fsinfo->fentries_loc;
+            
+            vfs_append_directory_file(dir, filedescriptor);
+
             fsinfo->fentries_loc++;
         }
         
@@ -193,9 +208,13 @@ void iso9660_append_files(struct vfs_directory* dir, struct vfs_block_device* bl
         }
         if (loc >= direntry->file_size) break; // end of the entries
     }
+    kfree(buffer);
+    kfree(direntry);
 }
 
-int iso9660_attempt_mount(struct vfs_block_device* blockdevice, const uint8_t rw) {
+int iso9660_attempt_mount(struct vfs_block_device* blockdevice, const bool rw) {
+    if (rw) return 3;
+
     struct iso9660_primary_volume_descriptor *pvd = (struct iso9660_primary_volume_descriptor*)kmalloc(blockdevice->blocksize);
     if (!vfs_read_blocks((unsigned char*)pvd, blockdevice, 1, 16)) return 1;
     if (pvd->type != 1) return 2; // why is the PVD not here
@@ -207,6 +226,7 @@ int iso9660_attempt_mount(struct vfs_block_device* blockdevice, const uint8_t rw
 
     struct vfs_mount_point *mountpoint = (struct vfs_mount_point*)kmalloc(sizeof(struct vfs_mount_point));
     mountpoint->fsdriver = &iso9660_vfsdrvinfo;
+    mountpoint->blockdevice = blockdevice;
 
     blockdevice->mountpoint = mountpoint;
 
@@ -253,6 +273,10 @@ int iso9660_attempt_mount(struct vfs_block_device* blockdevice, const uint8_t rw
             root->attributes = 0;
         } else {
             struct vfs_directory *dirent = (struct vfs_directory*)kmalloc(sizeof(struct vfs_directory));
+
+            // convert the directory name to lowercase
+            for (int i = 0; dirname[i] != '\0'; i++) dirname[i] = tolower(dirname[i]);
+
             dirent->name = dirname;
             direntries[ptentries_loc] = dirent;
 
@@ -302,24 +326,36 @@ int iso9660_attempt_mount(struct vfs_block_device* blockdevice, const uint8_t rw
     return 0;
 }
 
-FILE* iso9660_getfile(struct vfs_mount_point* mountpoint, const uint8_t mode, struct vfs_file* file) {
-    if (mode != 1) return NULL; // only reading allowed
+ssize_t iso9660_accessfile(struct vfs_block_device* blockdevice, const bool write, struct vfs_file *descriptor, unsigned char* buffer, const size_t len, const size_t loc) {
+    if (write) return -1; // only accept reading
 
-    FILE* fileptr = kmalloc(sizeof(FILE));
-    fileptr->id = file->id;
-    fileptr->mode = mode;
-    fileptr->flags = 0;
-    fileptr->count = 0;
-    fileptr->buffer = kmalloc(4096);
-    fileptr->buffer_size = 4096;
-    fileptr->ptr = fileptr->buffer;
-    fileptr->total_size = file->size;
+    struct iso9660_fs_info *fsinfo = (struct iso9660_fs_info*)blockdevice->mountpoint->extra;
+    ssize_t bytes = len;
+    
+    if (len >= (descriptor->size - loc)) {
+        bytes = (descriptor->size - loc);
+    }
+    
+    // if this is true, either we have been asked to do nothing or the location is past the end of the file
+    // either way, the application should be punished for making such a stupid call
+    if (bytes == 0) return 0; 
+    if (bytes < 0)  return -1; 
 
-    return fileptr;
-}
+    uint32_t sectors;
+    sectors = (bytes / blockdevice->blocksize) + 1;
+    if (!(bytes % blockdevice->blocksize)) sectors--;
 
-int iso9660_accessfile(struct vfs_mount_point* mountpoint, const uint8_t mode, FILE* descriptor, unsigned char* buffer, const uint32_t len) {
-    return 1;
+    uint32_t lba = fsinfo->fentries[descriptor->id]->file_loc + (loc / blockdevice->blocksize);
+
+    unsigned char *tempbuf = kmalloc(sectors * blockdevice->blocksize);
+    if (!vfs_read_blocks(tempbuf, blockdevice, sectors, lba)) {
+        kfree(tempbuf);
+        return -1;
+    }
+
+    memcpy(buffer, tempbuf, bytes);
+    kfree(tempbuf);
+    return bytes;
 }
 
 struct vfs_file *iso9660_createfile(struct vfs_mount_point* mountpoint, const char* path) {

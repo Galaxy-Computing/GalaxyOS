@@ -18,6 +18,7 @@ int strcmp(const char *s1, const char *s2);
 int strncmp(const char *s1, const char *s2, register size_t n);
 char *strncpy (char *s1, const char *s2, size_t n);
 char *strtok (char *s, const char *delim);
+char *strtok_r (char *s, const char *delim, char **olds);
 size_t strspn(const char *s, const char *accept);
 size_t strcspn(const char *s1, const char *s2);
 char *strpbrk(const char *s, const char *accept);
