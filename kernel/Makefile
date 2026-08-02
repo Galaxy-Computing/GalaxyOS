@@ -8,10 +8,11 @@ LDFLAGS?=
 LIBS?=
 
 DESTDIR?=
-PREFIX?=/usr/local
+PREFIX?=/galaxyos
 EXEC_PREFIX?=$(PREFIX)
 BOOTDIR?=$(EXEC_PREFIX)/boot
 INCLUDEDIR?=$(PREFIX)/include
+LIBDIR?=$(EXEC_PREFIX)/${HOSTARCH}
 
 CFLAGS:=$(CFLAGS) -ffreestanding -Wall -Wextra
 CPPFLAGS:=$(CPPFLAGS) -D__is_kernel -Iinclude
@@ -25,12 +26,12 @@ LIBS:=$(LIBS)
 
 recurfind = $(shell find $(1) -name '$(2)')
 
-KERNEL_OBJS =\
+OBJS=\
 $(patsubst %.c,%.o,$(call recurfind,.,*.c)) \
 $(patsubst %.S,%.o,$(call recurfind,.,*.S)) \
 
-OBJS=\
-$(KERNEL_OBJS) \
+KERNEL_OBJS = $(filter-out ./kernel/$(HOSTARCH)/crt0.o, $(OBJS))
+
 
 LINK_LIST=\
 $(LDFLAGS) \
@@ -66,5 +67,8 @@ install-headers:
 install-kernel: glxykrnl
 	mkdir -p $(DESTDIR)$(BOOTDIR)
 	cp glxykrnl $(DESTDIR)$(BOOTDIR)
+	cp kernel/$(HOSTARCH)/crti.o $(DESTDIR)$(LIBDIR)
+	cp kernel/$(HOSTARCH)/crtn.o $(DESTDIR)$(LIBDIR)
+	cp kernel/$(HOSTARCH)/crt0.o $(DESTDIR)$(LIBDIR)
 
 -include $(OBJS:.o=.d)

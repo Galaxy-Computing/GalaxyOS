@@ -20,7 +20,6 @@
 
 #include <kernel/vfat.h>
 #include <kernel/vfs.h>
-#include <kernel/devreg.h>
 #include <kernel/liballoc.h>
 #include <string.h>
 

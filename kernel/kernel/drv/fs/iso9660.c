@@ -184,6 +184,7 @@ void iso9660_append_files(struct vfs_directory* dir, struct vfs_block_device* bl
             filedescriptor->created_time = 0;
             filedescriptor->modified_time = 0;
             filedescriptor->attributes = current->flags & 1;
+            filedescriptor->open = 0;
 
             if (fsinfo->fentries_size <= fsinfo->fentries_loc) {
                 fsinfo->fentries_size += 32;

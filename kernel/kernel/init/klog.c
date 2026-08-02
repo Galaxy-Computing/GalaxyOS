@@ -17,7 +17,7 @@
 #include <stdio.h>
 
 #include <kernel/vga.h>
-#include <kernel/tty.h>
+#include <kernel/vgatty.h>
 
 void log_ok(const char* message) {
     terminal_setfgcolor(VGA_COLOR_LIGHT_MAGENTA);

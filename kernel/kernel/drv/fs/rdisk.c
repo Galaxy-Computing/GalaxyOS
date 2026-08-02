@@ -17,7 +17,6 @@
 #include <kernel/devcfg.h>
 #ifdef RDISK
 
-#include <kernel/devreg.h>
 #include <kernel/rdisk.h>
 #include <kernel/vfs.h>
 #include <kernel/liballoc.h>

@@ -8,4 +8,6 @@ typedef uint32_t blkcnt_t;
 typedef long signed int ssize_t;
 typedef long unsigned int size_t;
 
+typedef uint32_t mode_t;
+
 #endif

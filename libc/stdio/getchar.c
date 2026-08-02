@@ -9,6 +9,6 @@ int getchar() {
     size_t chars_read = term_read(&tchar, 1);
     return (int)tchar;
 #else
-    // TODO: Implement stdio and the write system call.
+    return 0;
 #endif
 }

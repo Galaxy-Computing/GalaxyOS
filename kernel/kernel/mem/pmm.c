@@ -18,7 +18,7 @@
 #include <kernel/pmm.h>
 #include <kernel/multiboot.h>
 #include <stdio.h>
-#include <kernel/tty.h>
+#include <kernel/vgatty.h>
 #include <kernel/vga.h>
 #include <kernel/klog.h>
 #include <kernel/exception.h>

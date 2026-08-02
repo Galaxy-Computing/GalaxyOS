@@ -20,7 +20,7 @@
 #include <kernel/ata.h>
 #include <kernel/io.h>
 #include <kernel/klog.h>
-#include <kernel/tty.h>
+#include <kernel/vgatty.h>
 #include <stdio.h>
 
 // this driver should not be used after boot

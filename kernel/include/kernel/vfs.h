@@ -94,7 +94,7 @@ struct vfs_file {
     uint32_t created_time;
     uint32_t modified_time;
     uint8_t attributes; // 1 = hidden
-    bool open; // true = open
+    int open; // this is the number of currently open streams on this file
 };
 
 struct vfs_file_open {
@@ -119,7 +119,6 @@ struct vfs_directory *vfs_find_directory(const char *path);
 
 struct vfs_mount_point *vfs_get_mount_info(uint32_t mountid);
 struct vfs_mount_point *vfs_mount_direct(struct vfs_block_device *blockdevice, const struct vfs_mount_point *mp);
-FILE *vfs_open_file(const char *filename, const char *mode);
 uint32_t vfs_register_blockdevice(struct vfs_block_device *newblockdevice);
 uint32_t vfs_register_fsdriver(struct vfs_fs_driver *fsdriver);
 struct vfs_fs_driver *vfs_detect_fs(struct vfs_block_device *blockdevice);
@@ -129,7 +128,7 @@ uint32_t vfs_read_blocks(unsigned char *dest, const struct vfs_block_device* blo
 uint32_t vfs_write_blocks(unsigned char *data, const struct vfs_block_device* blockdevice, const uint32_t blocks, const uint32_t index);
 
 // vfs implementations of the system calls
-int vfs_open(const char *path, int flags);
+int vfs_open(const char *path, int flags, ...);
 int vfs_close(int fd);
 ssize_t vfs_read(int fd, void *buf, size_t count);
 ssize_t vfs_write(int fd, void *buf, size_t count);

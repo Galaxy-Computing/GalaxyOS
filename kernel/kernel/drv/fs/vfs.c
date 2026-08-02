@@ -19,11 +19,12 @@
 
 #include <kernel/vfs.h>
 #include <kernel/liballoc.h>
-#include <kernel/devreg.h>
 #include <kernel/sched.h>
 #include <string.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <sys/types.h>
+#include <errno.h>
 
 #define DEFAULT_BLOCKDEVICES_SIZE 512
 
@@ -228,13 +229,11 @@ struct vfs_directory *vfs_create_directory(const char *path) {
     return fmount->fsdriver->createdirectory(fmount, path);
 }
 
-int vfs_open(const char *path, int flags) {
+int vfs_open(const char *path, int flags, ...) {
     struct vfs_mount_point *fmount = vfs_find_block_device_by_path(path)->mountpoint;
-    if (fmount == NULL) return -1;
+    if (fmount == NULL) return -ENOENT;
 
     struct vfs_file *vfsfile = vfs_find_file(path);
-    if (vfsfile->open) return -1;
-
     struct vfs_file_open *vfsopenfile = kmalloc(sizeof(struct vfs_file_open));
     vfsopenfile->file = vfsfile;
     vfsopenfile->fsdriver = vfsfile->volume->fsdriver;
@@ -246,7 +245,7 @@ int vfs_open(const char *path, int flags) {
         vfsopenfile->loc = 0;
     }
     
-    vfsfile->open = true;
+    vfsfile->open++;
 
     if (currentps->openfiles_loc >= currentps->openfiles_size) {
         currentps->openfiles = (struct vfs_file_open**)krealloc((void*)currentps->openfiles, sizeof(struct vfs_file_open*) * (currentps->openfiles_size + 32));
@@ -264,7 +263,7 @@ int vfs_close(int fd) {
     if (!(currentps->openfiles_loc > fd)) return -1;
     if (currentps->openfiles[fd] == NULL) return -1;
 
-    currentps->openfiles[fd]->file->open = false;
+    currentps->openfiles[fd]->file->open--;
     kfree(currentps->openfiles[fd]);
     currentps->openfiles[fd] = NULL;
     return 0;

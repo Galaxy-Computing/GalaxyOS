@@ -11,7 +11,7 @@ DESTDIR?=
 PREFIX?=/usr/local
 EXEC_PREFIX?=$(PREFIX)
 INCLUDEDIR?=$(PREFIX)/include
-LIBDIR?=$(EXEC_PREFIX)/lib
+LIBDIR?=$(EXEC_PREFIX)/${HOSTARCH}
 
 CFLAGS:=$(CFLAGS) -ffreestanding -Wall -Wextra
 CPPFLAGS:=$(CPPFLAGS) -D__is_libc -Iinclude
@@ -27,7 +27,7 @@ FREEOBJS=\
 stdio/printf.o \
 stdio/putchar.o \
 stdio/puts.o \
-stdio/fopen.o \
+stdio/open.o \
 stdio/getchar.o \
 stdlib/abort.o \
 stdlib/atoi.o \
@@ -45,8 +45,10 @@ string/strspn.o \
 string/strpbrk.o \
 string/memchr.o \
 ctype/tolower.o \
+errno.o \
 
 HOSTEDOBJS=\
+stdio/fopen.o \
 
 OBJS=\
 $(FREEOBJS) \
@@ -54,8 +56,7 @@ $(HOSTEDOBJS) \
 
 LIBK_OBJS=$(FREEOBJS:.o=.libk.o)
 
-#BINARIES=libc.a libk.a # Not ready for libc yet.
-BINARIES=libk.a
+BINARIES=libc.a libk.a
 
 .PHONY: all clean install install-headers install-libs
 .SUFFIXES: .o .libk.o .c .S

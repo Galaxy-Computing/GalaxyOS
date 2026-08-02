@@ -552,9 +552,6 @@ irq_common_stub:
     mov $irq_handler, %eax
     call *%eax
     pop %eax
-    mov $0x80, %eax
-    cmp 48(%esp), %eax
-    je no_switch
     mov %esp, %eax
     push %eax
     mov $set_thread_stack, %eax
@@ -569,7 +566,6 @@ irq_common_stub:
     mov (%ebx), %esp
     mov 4(%ebx), %eax
     mov %eax, %cr3
-no_switch:
     pop %gs
     pop %fs
     pop %es

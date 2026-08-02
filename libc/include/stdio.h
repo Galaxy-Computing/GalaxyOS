@@ -34,6 +34,7 @@ int puts(const char*);
 int fflush(FILE*);
 int fprintf(FILE*, const char*, ...);
 FILE *fopen(const char *filename, const char *mode);
+int open(const char *pathname, int flags, ...);
 
 #ifdef __cplusplus
 }

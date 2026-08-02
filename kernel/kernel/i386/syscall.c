@@ -1,4 +1,4 @@
-// Exception Handler (exception.c)
+// System Call Handler (syscall.c)
 // Copyright (C) 2025-2026 Skye310 (Galaxy Computing)
 //
 // This program is free software: you can redistribute it and/or modify
@@ -14,20 +14,31 @@
 // You should have received a copy of the GNU Lesser General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-#include <kernel/exception.h>
-#include <kernel/vga.h>
-#include <kernel/vgatty.h>
-#include <kernel/kernel.h>
-#include <stdio.h>
+#include <kernel/irq.h>
+#include <kernel/vfs.h>
+#include <sys/types.h>
+#include <errno.h>
 
-__attribute__((__noreturn__))
-void panic(const char *message) {
-    terminal_setbgcolor(VGA_COLOR_RED);
-    terminal_setfgcolor(VGA_COLOR_WHITE);
-    terminal_clear();
-    printf("KERNEL PANIC\n");
-    printf("Version: %s\n", K_VERSION);
-    printf(message);
-    halt();
-    __builtin_unreachable();
+typedef int (*syscallfunc)(unsigned int[]);
+
+syscallfunc syscalltable[256] = {0};
+
+int syscall_open(unsigned int args[]) {
+    return vfs_open((char*)args[0], (int)args[1], (mode_t)args[2]);
 }
+
+void syscall_handler(struct regs *r) {
+    if (syscalltable[r->eax]) {
+        unsigned int args[] = {r->ecx, r->edx, r->ebx, r->esi, r->edi, r->ebp};
+        r->eax = syscalltable[r->eax](args);
+    } else {
+        r->eax = -ENOSYS;
+    }
+}
+
+void syscall_init(void) {
+    irq_install_handler(0x60, &syscall_handler);
+
+    syscalltable[5] = &syscall_open;
+}
+

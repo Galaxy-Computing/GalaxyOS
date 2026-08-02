@@ -22,7 +22,7 @@
 // Don't modify anything past this line if you are just changing configuration.
 
 #ifdef VGATEXT
-#include <kernel/tty.h>
+#include <kernel/vgatty.h>
 #endif
 
 #ifdef PS2
