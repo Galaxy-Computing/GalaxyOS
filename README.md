@@ -8,7 +8,7 @@
 </div>
 
 ## Building
-Building this OS requires a version of i686-elf-gcc, a tutorial for building this can be found at [GCC Cross Compiler](https://wiki.osdev.org/GCC_Cross-Compiler).
+Building this OS requires a copy of i686-galaxyos-gcc, which can be built from the repositories for gcc and binutils from this organization.
 
 After you have obtained the cross compiler, you can run `make` in the root directory of the repository to build the OS. The resulting ISO image will be placed in the root and called `galaxyos.iso`.
 

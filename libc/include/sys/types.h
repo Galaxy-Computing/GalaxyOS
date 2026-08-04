@@ -9,5 +9,8 @@ typedef long signed int ssize_t;
 typedef long unsigned int size_t;
 
 typedef uint32_t mode_t;
+typedef int pid_t;
+
+typedef __INTPTR_TYPE__ intptr_t;
 
 #endif

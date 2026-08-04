@@ -57,11 +57,11 @@ int open(const char *pathname, int flags, ...) {
     va_end(args);
 
     __asm__(
-        "mov %0, %%eax\n\t"
-        "mov %1, %%ecx\n\t"
-        "mov %2, %%edx\n\t"
+        "mov %1, %%eax\n\t"
+        "mov %2, %%ecx\n\t"
+        "mov %3, %%edx\n\t"
         "int $0x80\n\t"
-        "mov %%eax, %3\n\t"
+        "mov %%eax, %0\n\t"
         : "=m" (retvalue) 
         : "m"  (syscall_num),
           "m"  (pathname),

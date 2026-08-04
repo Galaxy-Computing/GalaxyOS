@@ -32,6 +32,8 @@ stdio/getchar.o \
 stdlib/abort.o \
 stdlib/atoi.o \
 stdlib/itoa.o \
+stdlib/abs.o \
+stdlib/exit.o \
 string/memcmp.o \
 string/memcpy.o \
 string/memmove.o \
@@ -40,6 +42,9 @@ string/strlen.o \
 string/strcmp.o \
 string/strncmp.o \
 string/strncpy.o \
+string/strcat.o \
+string/strchr.o \
+string/strcpy.o \
 string/strtok.o \
 string/strspn.o \
 string/strpbrk.o \

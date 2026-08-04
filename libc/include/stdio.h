@@ -31,10 +31,20 @@ int printf(const char* __restrict, ...);
 int sprintf(char *str, const char* restrict format, ...);
 int putchar(int);
 int puts(const char*);
-int fflush(FILE*);
-int fprintf(FILE*, const char*, ...);
 FILE *fopen(const char *filename, const char *mode);
 int open(const char *pathname, int flags, ...);
+
+// these are not implemented, just here to make libgcc build without errors
+int fflush(FILE*);
+int fprintf(FILE*, const char*, ...);
+int fclose(FILE* stream);
+size_t fread(void* restrict buffer, size_t size, size_t count, FILE* restrict stream);
+int fseek(FILE* stream, long offset, int origin);
+long ftell(FILE* stream);
+size_t fwrite(const void* restrict buffer, size_t size, size_t count, FILE* restrict stream);
+void setbuf(FILE* restrict stream, char* restrict buffer);
+int vfprintf(FILE* restrict stream, const char* restrict format, va_list vlist);
+int feof(FILE *stream);
 
 #ifdef __cplusplus
 }
