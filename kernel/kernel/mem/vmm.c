@@ -18,8 +18,11 @@
 #include <stdint.h>
 #include <kernel/pmm.h>
 #include <kernel/vmm.h>
+#include <kernel/liballoc.h>
 #include <kernel/exception.h>
+#include <kernel/sched.h>
 #include <stddef.h>
+#include <string.h>
 
 #define PAGE_DIRECTORY_ADDR 0xFFFFF000
 #define PAGE_TABLE_ADDR 0xFFC00000
@@ -55,32 +58,41 @@ int vmm_map_page(address_t physaddr, address_t virtualaddr, unsigned int flags, 
 
     unsigned long *pd = (unsigned long *)PAGE_DIRECTORY_ADDR;
     unsigned long *pt = ((unsigned long *)PAGE_TABLE_ADDR) + (0x400 * pdindex);
-    unsigned long ptphys = page_table_physaddr + (PAGE_SIZE * pdindex);
+    unsigned long ptphys;
+
 	if ((pd[pdindex] & 1) == 0) {
 		// this isn't present, create a new one
-		pd[pdindex] = ptphys + 0x7; // user (this can be overriden by the pages), r/w (also can be overriden), present
+        // we should only be here for user pages
+        void* newptaddr = liballoc_alloc(1); // get a page for the page table
+        memset(newptaddr, 0, PAGE_SIZE); // zero it out, we don't want any random data that was in there earlier being interpreted as page table data
+        pd[pdindex] = (unsigned long)vmm_get_physaddr((address_t)newptaddr) | 0x7; // user, r/w (can be overriden), present
         __invlpg((unsigned long)pd);
 	}
+
+    // the kernel page tables are in a specific part of memory
+    if (virtualaddr >= 0xC0000000) { ptphys = page_table_physaddr + (PAGE_SIZE * pdindex); } 
+    else { ptphys = pd[pdindex] & 0xFFFFF000; }
 
     if ((pt[ptindex] & 1) == 1) {
 		// this is present
 		if (!overwrite) {
-			return 0; // we failed
+			return -1; // we failed
 		}
 	}
 
     pt[ptindex] = ((unsigned long)physaddr) | (flags & 0xFFF) | 0x01; // Present
 
     __invlpg(virtualaddr);
-	return 1;
+	return 0;
 }
 
+// map pages in kernelspace
 void *vmm_map_pages_k(address_t *pages, int pagecount) {
     void *startblock;
     startblock = (void*)end_mapped_kmemory;
     int i;
     for (i = 0; i < pagecount; i++) {
-        if (!vmm_map_page(pages[i], end_mapped_kmemory, 0x3, 0)) {
+        if (vmm_map_page(pages[i], end_mapped_kmemory, 0x3, 0) == -1) {
             return NULL;
         }
         end_mapped_kmemory += PAGE_SIZE;
@@ -89,6 +101,61 @@ void *vmm_map_pages_k(address_t *pages, int pagecount) {
         }
     }
     return startblock;
+}
+
+// map pages in userspace
+void *vmm_map_pages_u(address_t *pages, int pagecount, struct process *ps) {
+    void *startblock;
+    startblock = (void*)ps->pgbrk;
+    int i;
+    for (i = 0; i < pagecount; i++) {
+        if (vmm_map_page(pages[i], ps->pgbrk, 0x7, 0) == -1) {
+            startblock = NULL;
+        }
+        ps->pgbrk += PAGE_SIZE;
+        if (ps->pgbrk >= 0xC0000000) { // we overflowed into kernel space, out of virtual memory
+            startblock = NULL;
+        }
+    }
+    return startblock;
+}
+
+// map pages at specific location
+// loc will be modified
+void *vmm_map_pages_loc(address_t *pages, int pagecount, address_t loc, unsigned int flags) {
+    void *startblock;
+    startblock = (void*)loc;
+    int i;
+    for (i = 0; i < pagecount; i++) {
+        if (vmm_map_page(pages[i], loc, flags, 0) == -1) {
+            return NULL;
+        }
+        loc += PAGE_SIZE;
+        if (loc >= 0xFFC00000) { // we overflowed into our page directory, out of virtual memory
+            return NULL;
+        }
+    }
+    return startblock;
+}
+
+void vmm_map_stack(struct thread *thread) {
+    unsigned long *pd = (unsigned long *)processes[thread->pid]->cr3_virt;
+
+    // find the highest possible directory entry for the stack to be located in
+    int stackpdi = 767;
+    while (pd[stackpdi] & 0x1) {
+        stackpdi--;
+        if (stackpdi == -1) {
+            // h
+            break;
+        }
+    }
+    thread->stackpdi = stackpdi;
+    if (stackpdi > -1) {
+        void* newptaddr = liballoc_alloc(1); // get a page for the page table
+        memset(newptaddr, 0, PAGE_SIZE); // zero it out, we don't want any random data that was in there earlier being interpreted as page table data
+        pd[stackpdi] = (unsigned long)vmm_get_physaddr((address_t)newptaddr) | 0x7; // user, r/w (can be overriden), present
+    } 
 }
 
 int vmm_unmap_page(address_t virtualaddr) {
@@ -115,4 +182,8 @@ int vmm_unmap_page(address_t virtualaddr) {
 
 void vmm_init(unsigned int pagetable) {
     page_table_physaddr = pagetable;
+    unsigned long *pd = (unsigned long *)PAGE_DIRECTORY_ADDR;
+    for (int i = 3; i < 255; i++) {
+        pd[i + 768] = page_table_physaddr + (PAGE_SIZE * i) + 0x3;
+    }
 }

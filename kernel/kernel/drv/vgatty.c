@@ -142,9 +142,10 @@ void terminal_putchar(char c) {
     terminal_update_cursor((int)terminal_column, (int)terminal_row);
 }
 
-void terminal_write(const char* data, size_t size) {
+size_t terminal_write(const char* data, size_t size) {
     for (size_t i = 0; i < size; i++)
         terminal_putchar(data[i]);
+    return size;
 }
 
 void terminal_writestring(const char* data) {

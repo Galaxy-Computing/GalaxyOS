@@ -2,4 +2,4 @@
 set -e
 . ./iso.sh "$@"
 
-qemu-system-$(./target-triplet-to-arch.sh $HOST) -cdrom galaxyos.iso -s -S -d int -no-reboot -m 4G
+qemu-system-$(./target-triplet-to-arch.sh $HOST) -cdrom galaxyos.iso -s -S -d int -no-reboot -no-shutdown -m 4G -monitor stdio

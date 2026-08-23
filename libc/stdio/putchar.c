@@ -2,6 +2,8 @@
 
 #if defined(__is_libk)
 #include <kernel/term.h>
+#else
+#include <unistd.h>
 #endif
 
 int putchar(int ic) {
@@ -9,7 +11,8 @@ int putchar(int ic) {
     char c = (char) ic;
     term_write(&c, sizeof(c));
 #else
-    // TODO: Implement stdio and the write system call.
+    char c = (char) ic;
+    write(1, &c, 1);
 #endif
     return ic;
 }

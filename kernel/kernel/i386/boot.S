@@ -39,8 +39,7 @@ stack_top:
 # modules there. This lets the bootloader know it must avoid the addresses.
 .section .bss, "aw", @nobits
     .align 4096
-page_table:
-    .skip 3145728
+k_page_table:
 boot_page_table1:
     .skip 4096
 boot_page_table2:
@@ -59,8 +58,8 @@ boot_page_directory:
 _start:
 
     # Initialize the page tables to 0.
-    mov $4194304, %ecx
-    movl $(page_table - 0xC0000000), %edi
+    mov $1048576, %ecx
+    movl $(k_page_table - 0xC0000000), %edi
 zero_loop:
     stosb
     loop zero_loop
@@ -151,7 +150,7 @@ zero_loop:
     mov $stack_top, %esp
 
     # Push the multiboot arguments onto the stack.
-    push $(page_table - 0xC0000000)
+    push $(k_page_table - 0xC0000000)
     push %eax # Magic (should be 0x2BADBOO2)
     push %ebx # Address of the multiboot info
 
@@ -184,6 +183,13 @@ load_gdt:
                         #    and set the EIP (instruction pointer) to offset of setcs
 setcs:
     ret
+
+# C declaration: void flush_tss(void);
+.global flush_tss
+flush_tss:
+	mov $0x28, %ax # TSS segment
+	ltr %ax
+	ret
 
 .global idt_load
 .extern idtp

@@ -7,6 +7,11 @@ extern "C" {
 
 #include <sys/types.h>
 
+int brk(void *addr);
+void *sbrk(intptr_t increment);
+
+ssize_t write(int fd, const void *buf, size_t count);
+
 // these are not implemented, just here to make libgcc build without errors
 pid_t fork(void);
 int execv(const char *path, char *const argv[]);

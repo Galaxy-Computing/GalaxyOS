@@ -2,9 +2,12 @@
 set -e
 . ./config.sh "$@"
 
+rm -rf isodir
+rm -rf galaxyos.iso
+rm -rf sysroot
+
 for PROJECT in $PROJECTS; do
   (cd $PROJECT && $MAKE clean)
 done
 
-rm -rf isodir
-rm -rf galaxyos.iso
+

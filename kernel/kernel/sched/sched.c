@@ -21,18 +21,17 @@
 #include <kernel/pmm.h>
 #include <kernel/vmm.h>
 #include <kernel/idle.h>
+#include <kernel/pload.h>
+#include <kernel/term.h>
 #include <kernel/irq.h>
+#include <sys/types.h>
 #include <stdint.h>
 #include <string.h>
+#include <errno.h>
 
 #define PAGE_DIRECTORY_ADDR 0xFFFFF000
 
-#define THREAD_STATE_RUNNING 0
-#define THREAD_STATE_SUSPENDED 1
-#define THREAD_STATE_WAITING 2
-#define THREAD_STATE_STARTING 3
-#define THREAD_STATE_EXITING 4
-#define THREAD_STATE_DEAD 5
+#define THREAD_STACK_SIZE 4096 * 4
 
 #define REALLOC_INCREMENT 512
 #define DEFAULT_PROCESS_LIST_SIZE REALLOC_INCREMENT*2
@@ -44,22 +43,22 @@
 #define DEFAULT_P_TID_LIST_SIZE SMALL_REALLOC_INCREMENT*2
 
 struct process **processes;
-uint32_t processes_size;
-uint32_t last_pid;
+int processes_size;
+int last_pid;
 
 struct thread **threads;
-uint32_t last_tid;
-uint32_t threads_size;
+int last_tid;
+int threads_size;
 
-uint32_t *queue;
-uint32_t queue_start;
-uint32_t queue_loc;
-uint32_t queue_end;
+int *queue;
+int queue_start;
+int queue_loc;
+int queue_end;
 
-uint32_t currenttid;
+int currenttid;
 struct process *currentps;
 
-uint32_t idletid;
+int idletid;
 
 uint32_t get_eflags(void) {
     uint32_t flags;
@@ -73,53 +72,76 @@ uint32_t get_eflags(void) {
     return flags;
 }
 
-uint32_t sched_create_thread(uint32_t ownerpid, uint8_t noqueue, uint32_t entrypoint) {
+int sched_create_thread(int ownerpid, uint8_t noqueue, uint32_t entrypoint) {
     if (kmode) { asm("cli"); }
     
-    if (last_tid-1 >= MAX_THREADS) {
+    if (last_tid >= MAX_THREADS) {
         panic("Out of thread ids"); // todo: reuse dead ids
     }
-    if (last_tid-1 >= processes_size) {
+    if (last_tid >= processes_size) {
         threads = (struct thread**)krealloc((void*)threads, sizeof(struct thread*) * (threads_size + REALLOC_INCREMENT));
         threads_size += REALLOC_INCREMENT;
     }
 
-    threads[last_tid-1] = (struct thread*)kmalloc(sizeof(struct thread));
-    threads[last_tid-1]->pid = ownerpid;
-    threads[last_tid-1]->state = THREAD_STATE_STARTING;
-    threads[last_tid-1]->cr3 = processes[ownerpid-1]->cr3;
+    threads[last_tid] = (struct thread*)kmalloc(sizeof(struct thread));
+    threads[last_tid]->pid = ownerpid;
+    threads[last_tid]->state = THREAD_STATE_STARTING;
+    threads[last_tid]->cr3 = processes[ownerpid]->cr3;
     
     // create the stack
-    threads[last_tid-1]->esp_k = (uint32_t*)((uint32_t)kmalloc(4096*4)+4096*4); // this is for context switches and kernel level threads
+    threads[last_tid]->esp_k = (uint32_t*)((uint32_t)kmalloc(THREAD_STACK_SIZE)+THREAD_STACK_SIZE); // this is for context switches and kernel level threads
 
-    if (processes[ownerpid-1]->privilege_level == 0) {
+    vmm_map_stack(threads[last_tid]);
+    if (threads[last_tid]->stackpdi == -1) { return -1; }
+
+    if (!processes[ownerpid]->privilege_level) {
         // set up the stack frame that the irq routine expects
-        threads[last_tid-1]->esp_k -= 17;
-        threads[last_tid-1]->esp_k[0] = 0x10;
-        threads[last_tid-1]->esp_k[1] = 0x10;
-        threads[last_tid-1]->esp_k[2] = 0x10;
-        threads[last_tid-1]->esp_k[3] = 0x10;
-        threads[last_tid-1]->esp_k[4] = 0;
-        threads[last_tid-1]->esp_k[5] = 0;
-        threads[last_tid-1]->esp_k[6] = 0;
-        threads[last_tid-1]->esp_k[7] = (uint32_t)threads[last_tid-1]->esp_k+14;
-        threads[last_tid-1]->esp_k[8] = 0;
-        threads[last_tid-1]->esp_k[9] = 0;
-        threads[last_tid-1]->esp_k[10] = 0;
-        threads[last_tid-1]->esp_k[11] = last_tid-1;
-        threads[last_tid-1]->esp_k[14] = entrypoint;
-        threads[last_tid-1]->esp_k[15] = 0x08;
-        threads[last_tid-1]->esp_k[16] = get_eflags();
+        threads[last_tid]->esp_k = (uint32_t*)((uint32_t)(threads[last_tid]->esp_k) - 68);
+        threads[last_tid]->esp_k[0] = 0x10; // gs
+        threads[last_tid]->esp_k[1] = 0x10; // fs
+        threads[last_tid]->esp_k[2] = 0x10; // es
+        threads[last_tid]->esp_k[3] = 0x10; // ds
+        threads[last_tid]->esp_k[4] = 0; // edi
+        threads[last_tid]->esp_k[5] = 0; // esi
+        threads[last_tid]->esp_k[6] = 0; // ebp
+        threads[last_tid]->esp_k[7] = 0; // esp (this is ignored)
+        threads[last_tid]->esp_k[8] = 0; // ebx
+        threads[last_tid]->esp_k[9] = 0; // edx
+        threads[last_tid]->esp_k[10] = 0; // ecx
+        threads[last_tid]->esp_k[11] = last_tid; // eax
+        threads[last_tid]->esp_k[14] = entrypoint; // eip
+        threads[last_tid]->esp_k[15] = 0x08; // cs
+        threads[last_tid]->esp_k[16] = get_eflags(); // eflags
     } else {
-        panic("User space not implemented");
+        // userland thread
+        threads[last_tid]->esp_k = (uint32_t*)((uint32_t)(threads[last_tid]->esp_k) - 76);
+        threads[last_tid]->esp_k[0] = 0x20 | 3; // gs
+        threads[last_tid]->esp_k[1] = 0x20 | 3; // fs
+        threads[last_tid]->esp_k[2] = 0x20 | 3; // es
+        threads[last_tid]->esp_k[3] = 0x20 | 3; // ds
+        threads[last_tid]->esp_k[4] = 0; // edi
+        threads[last_tid]->esp_k[5] = 0; // esi
+        threads[last_tid]->esp_k[6] = 0; // ebp
+        threads[last_tid]->esp_k[7] = 0; // esp (this is ignored)
+        threads[last_tid]->esp_k[8] = 0; // ebx
+        threads[last_tid]->esp_k[9] = 0; // edx
+        threads[last_tid]->esp_k[10] = 0; // ecx
+        threads[last_tid]->esp_k[11] = last_tid; // eax
+        threads[last_tid]->esp_k[14] = entrypoint; // eip
+        threads[last_tid]->esp_k[15] = 0x18 | 3; // cs
+        threads[last_tid]->esp_k[16] = 0b1000000010; // eflags
+        threads[last_tid]->esp_k[17] = (threads[last_tid]->stackpdi+1) * 0x400000; // userland esp
+        threads[last_tid]->esp_k[18] = 0x20 | 3; // ss
     }
+    threads[last_tid]->entrypoint = &threads[last_tid]->esp_k[14];
+    threads[last_tid]->privilege_level = processes[ownerpid]->privilege_level;
 
     // add the thread to the process
-    if (processes[ownerpid-1]->threadcount >= threads_size) {
-        processes[ownerpid-1]->tids = (uint32_t*)krealloc((void*)processes[ownerpid-1]->tids, sizeof(uint32_t) * (processes[ownerpid-1]->tids_size + SMALL_REALLOC_INCREMENT));
-        processes[ownerpid-1]->tids_size += SMALL_REALLOC_INCREMENT;
+    if (processes[ownerpid]->threadcount >= threads_size) {
+        processes[ownerpid]->tids = (int*)krealloc((void*)processes[ownerpid]->tids, sizeof(int) * (processes[ownerpid]->tids_size + SMALL_REALLOC_INCREMENT));
+        processes[ownerpid]->tids_size += SMALL_REALLOC_INCREMENT;
     }
-    processes[ownerpid-1]->tids[processes[ownerpid-1]->threadcount++] = last_tid-1;
+    processes[ownerpid]->tids[processes[ownerpid]->threadcount++] = last_tid;
     
     if (!noqueue) {
         queue[queue_end] = last_tid;
@@ -132,58 +154,189 @@ uint32_t sched_create_thread(uint32_t ownerpid, uint8_t noqueue, uint32_t entryp
     return last_tid++;
 }
 
-uint32_t sched_create_process(uint8_t privilege, const char* name) {
+int sched_create_process(uint8_t privilege, const char* name) {
     if (kmode) { asm("cli"); }
-    if (last_pid-1 >= MAX_PROCESSES) {
+    if (last_pid >= MAX_PROCESSES) {
         panic("Out of process ids"); // todo: reuse dead ids
     }
-    if (last_pid-1 >= processes_size) {
+    if (last_pid >= processes_size) {
         processes = (struct process**)krealloc((void*)processes, sizeof(struct process*) * (processes_size + REALLOC_INCREMENT));
-        queue = (uint32_t*)krealloc((void*)queue, sizeof(uint32_t) * (processes_size + REALLOC_INCREMENT));
+        queue = (int*)krealloc((void*)queue, sizeof(int) * (processes_size + REALLOC_INCREMENT));
 
         processes_size += REALLOC_INCREMENT;
     }
-    processes[last_pid-1] = (struct process*)kmalloc(sizeof(struct process));
-    processes[last_pid-1]->name = (char*)kmalloc(strlen(name));
-    memcpy(processes[last_pid-1]->name,name,strlen(name));
-    processes[last_pid-1]->privilege_level = privilege;
-    processes[last_pid-1]->threadcount = 0;
-    processes[last_pid-1]->pid = last_pid;
-    processes[last_pid-1]->tids = (uint32_t*)kmalloc(sizeof(uint32_t) * DEFAULT_P_TID_LIST_SIZE);
-    processes[last_pid-1]->tids_size = DEFAULT_P_TID_LIST_SIZE;
-    processes[last_pid-1]->cr3_virt = (uint32_t*)liballoc_alloc(1); // this gives us a page aligned 4k block of memory for our page directory
-    processes[last_pid-1]->cr3 = (uint32_t*)vmm_get_physaddr((address_t)processes[last_pid-1]->cr3_virt);
+    processes[last_pid] = (struct process*)kmalloc(sizeof(struct process));
+    processes[last_pid]->name = (char*)kmalloc(strlen(name)+1);
+    memcpy(processes[last_pid]->name,name,strlen(name));
+    processes[last_pid]->name[strlen(name)] = '\0';
+    processes[last_pid]->argv = NULL; // should implement this later
+    processes[last_pid]->argc = 0; // should implement this later
+    processes[last_pid]->privilege_level = privilege;
+    processes[last_pid]->threadcount = 0;
+    processes[last_pid]->pid = last_pid;
+    processes[last_pid]->tids = (int*)kmalloc(sizeof(int) * DEFAULT_P_TID_LIST_SIZE);
+    processes[last_pid]->tids_size = DEFAULT_P_TID_LIST_SIZE;
+    processes[last_pid]->cr3_virt = (uint32_t*)liballoc_alloc(1); // this gives us a page aligned 4k block of memory for our page directory
+    memset(processes[last_pid]->cr3_virt, 0, 4096);
+    processes[last_pid]->cr3 = (uint32_t*)vmm_get_physaddr((address_t)processes[last_pid]->cr3_virt);
 
-    processes[last_pid-1]->openfiles = (struct vfs_file_open**)kmalloc(sizeof(struct vfs_file_open*) * 32);
-    processes[last_pid-1]->openfiles_size = 32;
-    processes[last_pid-1]->openfiles_loc = 0;
+    processes[last_pid]->psregions = kmalloc(sizeof(struct ps_region*) * 64);
+    processes[last_pid]->psregions_count = 0;
+
+    processes[last_pid]->openfiles = (struct vfs_file_open**)kmalloc(sizeof(struct vfs_file_open*) * 32);
+    processes[last_pid]->openfiles_size = 32;
+    processes[last_pid]->openfiles_loc = 0;
+
+    // these two should be changed by the process loader, but we don't need these if the process is in the kernel
+    processes[last_pid]->brk = 0;
+    processes[last_pid]->brk_offset = 0;
+    processes[last_pid]->pgbrk = 0;
+
+    processes[last_pid]->procerr = 0;
+    processes[last_pid]->procerrhandler = NULL;
+    processes[last_pid]->state = 2;
+    processes[last_pid]->waiting_threads = 0;
+
+    processes[last_pid]->exitcode = 0;
+    processes[last_pid]->terminal = &defaultterm;
 
     // copy the kernel directory entries into the process page directory
     unsigned long *pd = (unsigned long *)PAGE_DIRECTORY_ADDR;
     for (int i = 768; i < 1024; i++) {
-        processes[last_pid-1]->cr3_virt[i] = pd[i];
+        processes[last_pid]->cr3_virt[i] = pd[i];
     }
+
+    // change the last page directory entry to map to itself
+    processes[last_pid]->cr3_virt[1023] = ((uint32_t)processes[last_pid]->cr3 | 0x3);
     
     if (kmode) { asm("sti"); }
     return last_pid++;
 }
 
-uint32_t sched_set_cr3(uint32_t pid, uint32_t* newcr3) {
-    liballoc_free((void*)processes[pid-1]->cr3_virt, 1);
-    processes[pid-1]->cr3 = newcr3;
+int sched_set_cr3(int pid, uint32_t* newcr3) {
+    liballoc_free((void*)processes[pid]->cr3_virt, 1);
+    processes[pid]->cr3_virt = newcr3;
+    processes[pid]->cr3 = (uint32_t*)vmm_get_physaddr((uint32_t)newcr3);
     return pid;
 }
 
-uint32_t sched_create_process_idle(void) {
-    uint32_t idlepid = sched_create_process(0, "(idle)");
+uintptr_t sched_setbrk_true(void* addr, struct process *ps) {
+    uintptr_t retval = ps->brk;
+    if (addr != NULL) {
+        uintptr_t realbrk = (uintptr_t)addr + 1; // we add one here because if addr is on a page boundary, the last byte will be unmapped
+        if (realbrk % 4096) { realbrk += 4096 - (realbrk % 4096); } // round up to a page boundary
+        if (ps->pgbrk == realbrk) { // we already have the proper amount of memory allocated, there's nothing that needs to be done
+            ps->brk = (uintptr_t)addr;
+            return ps->brk;
+        } else {
+            // make sure we're in the right page directory
+            // this is a bit nasty but i don't want to rewrite a lot of vmm code
+            uintptr_t oldcr3;
+            uintptr_t cr3 = (uintptr_t)ps->cr3;
+            __asm__ (
+                "mov %%cr3, %0\n\t"
+                "mov %1, %%cr3\n\t"
+                : "=r" (oldcr3)
+                : "r" (cr3)
+            );
+            if (ps->pgbrk < realbrk) { // we need to allocate more pages
+                int pagecnt = (realbrk - ps->pgbrk) / 4096;
+                int i;
+                address_t pages[pagecnt];
+                
+                for (i = 0; i < pagecnt; i++) {
+                    pages[i] = pmm_alloc_page();
+                }
+                ps->brk_offset += realbrk - ps->pgbrk;
+                if (vmm_map_pages_u(pages, pagecnt, ps) != NULL) { // this changes pgbrk for us
+                    ps->brk = (uintptr_t)addr;
+                    retval = ps->brk;
+                } 
+            }
+            if (ps->pgbrk > realbrk) { // we need to free some pages
+                int pagecnt = (ps->pgbrk - realbrk) / 4096;
+                int i;
+                int err = 0;
+
+                for (i = 0; i < pagecnt; i++) {
+                    address_t physaddr = vmm_get_physaddr((address_t)realbrk+(i*4096));
+                    if (!physaddr) {
+                        err = 1;
+                        break;
+                    }
+                    pmm_free_page(physaddr);
+                    if (!vmm_unmap_page((address_t)addr+(i*4096))) {
+                        err = 1;
+                        break;
+                    }
+                }
+                if (!err) {
+                    ps->brk_offset -= ps->pgbrk - realbrk;
+                    ps->brk = (uintptr_t)addr;
+                    retval = ps->brk;
+                }
+            }
+            __asm__ (
+                "mov %0, %%cr3\n\t"
+                : : "r" (oldcr3)
+            );
+        }
+    }
+    return retval;
+}
+
+uintptr_t sched_setbrk(void* addr) {
+    return sched_setbrk_true(addr, currentps);
+}
+
+void sched_free_all(struct process *ps) {
+    uintptr_t oldcr3;
+    uintptr_t cr3 = (uintptr_t)ps->cr3;
+    __asm__ (
+        "mov %%cr3, %0\n\t"
+        "mov %1, %%cr3\n\t"
+        : "=r" (oldcr3)
+        : "r" (cr3)
+    );
+    sched_setbrk_true((void*)(ps->pgbrk-ps->brk_offset), ps);
+    for (uint32_t i = 0; i < ps->psregions_count; i++) {
+        uint32_t pagecnt = ps->psregions[i]->size / 4096;
+        for (uint32_t x = 0; x < pagecnt; x++) {
+            address_t physaddr = vmm_get_physaddr((address_t)ps->psregions[i]->offset+(x*4096));
+            if (!physaddr) {
+                continue;
+            }
+            pmm_free_page(physaddr);
+            vmm_unmap_page((address_t)ps->psregions[i]->offset+(x*4096));
+        }
+        kfree(ps->psregions[i]);
+    }
+    kfree(ps->psregions);
+    __asm__ (
+        "mov %0, %%cr3\n\t"
+        : : "r" (oldcr3)
+    );
+}
+
+int sched_exit_process(int exitcode) {
+    currentps->exitcode = exitcode;
+    currentps->state = 1;
+    for (int i = 0; i < currentps->threadcount; i++) {
+        threads[currentps->tids[i]]->state = THREAD_STATE_EXITING;
+    }
+    return 0;
+}
+
+int sched_create_process_idle(void) {
+    int idlepid = sched_create_process(0, "(idle)");
     idletid = sched_create_thread(idlepid, 1, (uint32_t)&idle_loop);
     return idlepid;
 }
 
-void sched_suspend_thread(uint8_t irq, uint32_t tid) {
+void sched_suspend_thread(uint8_t irq, int tid) {
     if (kmode) { asm("cli"); }
-    threads[tid-1]->irq_wait = irq;
-    threads[tid-1]->state = THREAD_STATE_SUSPENDED;
+    threads[tid]->wait = irq;
+    threads[tid]->state = THREAD_STATE_SUSPENDED;
     if (kmode) { asm("sti"); }
 }
 
@@ -192,24 +345,24 @@ void sched_suspend_current_thread(uint8_t irq) {
     asm("int $0x30"); // this yields to the next thread
 }
 
-uint32_t sched_find_next_tid(void) {
+int sched_find_next_tid(void) {
     if (queue_end-queue_loc > 0) {
         return queue[queue_loc];
     }
-    return 0; // no threads are left
+    return -1; // no threads are left
 }
 
-uint32_t sched_pop_next_tid(void) {
+int sched_pop_next_tid(void) {
     if (queue_end-queue_loc > 0) {
         return queue[queue_loc++];
     }
-    return 0; // no threads are left
+    return -1; // no threads are left
 }
 
 void sched_check_suspended_threads(uint8_t irq) {
-    for (uint32_t i = 0; i < last_tid-1; i++) {
+    for (int i = 0; i < last_tid; i++) {
         if (threads[i]->state == THREAD_STATE_SUSPENDED) {
-            if (threads[i]->irq_wait == irq) {
+            if (threads[i]->wait == irq) {
                 threads[i]->state = THREAD_STATE_RUNNING;
             }
         }
@@ -217,11 +370,11 @@ void sched_check_suspended_threads(uint8_t irq) {
 }
 
 void sched_pick_next(void) {
-    currenttid = 0;
+    currenttid = -1;
     int loop = 0;
-    while (!currenttid) {
-        uint32_t nexttid = sched_pop_next_tid();
-        if (!nexttid) {
+    while (currenttid == -1) {
+        int nexttid = sched_pop_next_tid();
+        if (nexttid == -1) {
             if (loop) {
                 // we have no active threads
                 nexttid = idletid;
@@ -230,32 +383,78 @@ void sched_pick_next(void) {
             queue_loc = queue_start;
             nexttid = sched_pop_next_tid();
             loop = 1;
-            if (!nexttid) {
+            if (nexttid == -1) {
                 // there are no threads in the queue
                 nexttid = idletid;
             }
         }
-        switch (threads[nexttid-1]->state) {
+        switch (threads[nexttid]->state) {
             case THREAD_STATE_RUNNING:
-                currentps = processes[threads[nexttid-1]->pid-1];
+                // this is the next thread we will run
+                currentps = processes[threads[nexttid]->pid];
                 currenttid = nexttid;
                 break;
             case THREAD_STATE_SUSPENDED:
-                // skip it
-                break;
             case THREAD_STATE_WAITING:
                 // skip it
                 break;
             case THREAD_STATE_STARTING:
-                // if it's a kernel process, we have nothing to do here
-                if (threads[nexttid-1]->privilege_level == 0) { threads[nexttid-1]->state = THREAD_STATE_RUNNING; }
-                // if it's not, we need to wait for the process loader to finish spawning the thread
+                // if it's a kernel thread, we have nothing to do here
+                if (threads[nexttid]->privilege_level == 0) { 
+                    threads[nexttid]->state = THREAD_STATE_RUNNING; 
+                    break;
+                }
+                // if it's not, we need to check if the process is still starting
+                switch (processes[threads[nexttid]->pid]->state) {
+                    case PROCESS_STATE_STARTING:
+                        // it is, so call the process loader
+                        pload_load_process(threads[nexttid]->pid, nexttid);
+                        break;
+                    case PROCESS_STATE_RUNNING:
+                    case PROCESS_STATE_LOADING:
+                        // we can safely start the thread
+                        threads[nexttid]->state = THREAD_STATE_RUNNING;
+                        break;
+                }
                 break;
             case THREAD_STATE_EXITING:
-                // TODO: remove thread from process and queue
+                if (processes[threads[nexttid]->pid]->state == PROCESS_STATE_EXITING) {
+                    // the entire process is exiting, mark everything as dead
+                    for (int i = 0; i < processes[threads[nexttid]->pid]->threadcount; i++) {
+                        threads[processes[threads[nexttid]->pid]->tids[i]]->state = THREAD_STATE_DEAD; // if a thread is marked dead, it will be freed later
+                    }
+                    processes[threads[nexttid]->pid]->tids_size = 0;
+                    processes[threads[nexttid]->pid]->threadcount = 0;
+                    
+                    // these aren't needed anymore and can be safely freed
+                    kfree(processes[threads[nexttid]->pid]->tids); 
+                    liballoc_free(processes[threads[nexttid]->pid]->cr3_virt, 1);
+
+                    // we don't free it if there are any other threads waiting on this process since we need it's exit code
+                    if (!processes[threads[nexttid]->pid]->waiting_threads) {
+                        // if there aren't any, we can safely free the entire process
+                        kfree(processes[threads[nexttid]->pid]->name);
+                        if (processes[threads[nexttid]->pid]->argv != NULL) {
+                            kfree(processes[threads[nexttid]->pid]->argv);
+                        }
+                        kfree(processes[threads[nexttid]->pid]);
+                        processes[threads[nexttid]->pid] = NULL; // set it to a null pointer just so we know this isn't valid
+                    }
+                }
+                threads[nexttid]->state = THREAD_STATE_DEAD;
                 break;
             case THREAD_STATE_DEAD:
-                // this really shouldn't happen, a dead thread should never be in the queue
+                // take it out of the queue
+                for (int i = queue_loc-1; i < queue_end-1; i++) {
+                    queue[i] = i+1;
+                }
+                queue_end--;
+                queue_loc--;
+
+                // free the thread
+                kfree(threads[nexttid]->esp_k);
+                kfree(threads[nexttid]);
+                threads[nexttid] = NULL; // set it to a null pointer just so we know this isn't valid
                 break;
         }
     }
@@ -263,31 +462,58 @@ void sched_pick_next(void) {
 
 struct thread *sched_loop(void) {
     sched_pick_next();
-    if (threads[currenttid-1]->privilege_level) {
-        panic("User space process not implemented");
+    return threads[currenttid];
+}
+
+void sched_user_fault(int eno, uint32_t errorcode) {
+    switch (eno) {
+        case 0x0E: // it's a page fault
+            uintptr_t cr2;
+            __asm__(
+                "mov %%cr2, %0\n\t"
+                : "=r" (cr2)
+            );
+            if (!(errorcode & 1)) {
+                // check if the page fault was in the range for the stack
+                if ((cr2 > (threads[currenttid]->stackpdi * 0x400000)) && (cr2 < (threads[currenttid]->stackpdi * 0x400000 + 0x3FFFFF))) {
+                    // if it was, allocate the page
+                    address_t newpage = pmm_alloc_page();
+                    vmm_map_page(newpage, cr2 & 0xFFFFF000, 0x7, 0);
+                    return; // the program can continue on
+                }
+            }
+            break;
+        case 0x01: // debugger interrupt, we can just ignore this
+            return;
     }
-    return threads[currenttid-1];
+    // we couldn't handle the exception if we're down here
+    // send it to the process as procerr
+    currentps->procerr = eno+1;
 }
 
 void sched_init(void) {
     // set up dynamic arrays
     processes = (struct process**)kmalloc(sizeof(struct process) * DEFAULT_PROCESS_LIST_SIZE);
     threads = (struct thread**)kmalloc(sizeof(struct thread) * DEFAULT_THREAD_LIST_SIZE);
-    queue = (uint32_t*)kmalloc(sizeof(uint32_t) * DEFAULT_THREAD_LIST_SIZE);
+    queue = (int*)kmalloc(sizeof(int) * DEFAULT_THREAD_LIST_SIZE);
     queue_start = 0;
     queue_loc = 0;
     queue_end = 0;
 
     processes_size = DEFAULT_PROCESS_LIST_SIZE;
     threads_size = DEFAULT_THREAD_LIST_SIZE;
-    last_pid = 1;
-    last_tid = 1;
+    last_pid = 0;
+    last_tid = 0;
 
-    currenttid = 0;
+    currenttid = -1;
 
     sched_create_process_idle();
 }
 
 void set_thread_stack(uint32_t *esp_k) {
-    threads[currenttid-1]->esp_k = esp_k;
+    if (currenttid == -1) { 
+        //printf("setting stack of tid -1!\n");
+        return;
+    }
+    threads[currenttid]->esp_k = esp_k;
 }

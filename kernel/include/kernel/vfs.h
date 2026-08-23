@@ -116,6 +116,7 @@ void vfs_append_directory_file(struct vfs_directory* parent, struct vfs_file* ch
 
 struct vfs_file *vfs_find_file(const char *path);
 struct vfs_directory *vfs_find_directory(const char *path);
+char *vfs_file_name(int fd);
 
 struct vfs_mount_point *vfs_get_mount_info(uint32_t mountid);
 struct vfs_mount_point *vfs_mount_direct(struct vfs_block_device *blockdevice, const struct vfs_mount_point *mp);
@@ -131,7 +132,7 @@ uint32_t vfs_write_blocks(unsigned char *data, const struct vfs_block_device* bl
 int vfs_open(const char *path, int flags, ...);
 int vfs_close(int fd);
 ssize_t vfs_read(int fd, void *buf, size_t count);
-ssize_t vfs_write(int fd, void *buf, size_t count);
+ssize_t vfs_write(int fd, const void *buf, size_t count);
 int vfs_fstat(int fd, struct stat *statbuf);
 
 #endif

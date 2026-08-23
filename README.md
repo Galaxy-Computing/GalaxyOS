@@ -4,7 +4,9 @@
     <img alt="GitHub License" src="https://img.shields.io/github/license/Galaxy-Computing/GalaxyOS">
     <img alt="Static Badge" src="https://img.shields.io/badge/version-neptune_0.1.0-blue">
     <br>
-    <img src="https://discord.com/api/guilds/1455046419353178226/widget.png?style=banner2" alt="Discord Banner 2"/>
+    <a href="https://discord.gg/D483Rhz82G">
+        <img src="https://discord.com/api/guilds/1455046419353178226/widget.png?style=banner2" alt="Discord Banner 2"/>
+    </a>
 </div>
 
 ## Building

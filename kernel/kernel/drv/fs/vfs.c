@@ -217,6 +217,10 @@ struct vfs_directory *vfs_find_directory(const char *path) {
     return searchdir;
 }
 
+char *vfs_file_name(int fd) {
+    return currentps->openfiles[fd]->file->name;
+}
+
 struct vfs_file *vfs_create_file(const char *path) {
     struct vfs_mount_point *fmount = vfs_find_block_device_by_path(path)->mountpoint;
     if (fmount == NULL) return NULL;
@@ -294,7 +298,7 @@ ssize_t vfs_read(int fd, void *buf, size_t count) {
     return bytesread;
 }
 
-ssize_t vfs_write(int fd, void *buf, size_t count) {
+ssize_t vfs_write(int fd, const void *buf, size_t count) {
     if (!(currentps->openfiles_loc > fd)) return -1;
     if (currentps->openfiles[fd] == NULL) return -1;
 
@@ -322,8 +326,6 @@ void vfs_init(void) {
     vfs_fsdrivers = (struct vfs_fs_driver**)kmalloc(sizeof(struct vfs_fsdriver*) * 32);
     vfs_fsdrivers_size = 32;
     vfs_fsdrivers_loc = 0;
-
-    
 }
 
 #endif

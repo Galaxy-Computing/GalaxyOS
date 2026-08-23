@@ -4,12 +4,17 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 static bool print(const char* data, size_t length) {
     const unsigned char* bytes = (const unsigned char*) data;
+    #if defined(__is_libk)
     for (size_t i = 0; i < length; i++)
         if (putchar(bytes[i]) == EOF)
             return false;
+    #else
+    if (write(1, data, length) == -1) return false;
+    #endif
     return true;
 }
 

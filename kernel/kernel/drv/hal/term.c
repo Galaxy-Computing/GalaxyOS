@@ -21,10 +21,27 @@
 
 // New code should be added here when a new terminal or keyboard driver is added, for now we just use the VGATEXT one.
 
-void term_write(const char *str, size_t size) {
+#if defined(VGATEXT) && defined(PS2KB)
+struct terminal defaultterm = {
+    .write = &terminal_write,
+    .read  = &ps2kb_read_chars,
+    .clear = &terminal_clear,
+    .id    = 0
+};
+#else
+struct terminal defaultterm = {
+    .write = NULL,
+    .read  = NULL,
+    .clear = NULL,
+    .id    = 0
+};
+#endif
+
+struct terminal *currentterm = &defaultterm;
+
+size_t term_write(const char *str, size_t size) {
     #ifdef VGATEXT
-    terminal_write(str, size);
-    return;
+    return terminal_write(str, size);
     #endif
 }
 

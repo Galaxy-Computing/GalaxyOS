@@ -23,9 +23,13 @@
 #include <kernel/vga.h>
 #include <kernel/vgatty.h>
 #include <kernel/liballoc.h>
+#include <kernel/kernel.h>
 #include <stdio.h>
 
 #define CDROM_SECTOR_SIZE 2048
+
+int atapi_disc = -1;
+int atapi_disccount = 0;
 
 int read_cdrom(struct ata_device *device, uint32_t lba, uint32_t sectors, uint16_t *buffer) {
     if (device->type != ATA_TYPE_ATAPI) {
@@ -64,13 +68,23 @@ int read_cdrom(struct ata_device *device, uint32_t lba, uint32_t sectors, uint16
 
     // Read words
 	for (uint32_t i = 0; i < sectors; i++) {
-        // Suspend the thread until the drive is ready
-        if (port == 0x1F0) {
-            sched_suspend_current_thread(14);
+        if (kmode) {
+            // Suspend the thread until the drive is ready
+            if (port == 0x1F0) {
+                sched_suspend_current_thread(14);
+            } else {
+                sched_suspend_current_thread(15);
+            }
         } else {
-            sched_suspend_current_thread(15);
+            // Poll until we're ready because we don't have scheduling
+            while (1) {
+                uint8_t status = inb(port + COMMAND_REGISTER);
+                if (status & 0x01)
+                    return 1;
+                if (!(status & 0x80) && (status & 0x08))
+                    break;
+            }
         }
-
         if (inb(port + COMMAND_REGISTER) & 1) {
             // error occurred, stop the transfer and return a failure
             return 0;
@@ -243,7 +257,8 @@ void atapi_init(void) {
 
             tempdevice.extraa = (void*)&atadevices[i];
 
-            vfs_register_blockdevice(&tempdevice);
+            atapi_disc = (int)vfs_register_blockdevice(&tempdevice);
+            atapi_disccount++;
         }
     }
 }

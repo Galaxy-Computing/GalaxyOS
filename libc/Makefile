@@ -1,5 +1,5 @@
 DEFAULT_HOST!=../default-host.sh
-HOST?=DEFAULT_HOST
+HOST?=$(DEFAULT_HOST)
 HOSTARCH!=../target-triplet-to-arch.sh $(HOST)
 
 CFLAGS?=-O0 -g
@@ -8,7 +8,7 @@ LDFLAGS?=
 LIBS?=
 
 DESTDIR?=
-PREFIX?=/usr/local
+PREFIX?=/galaxyos
 EXEC_PREFIX?=$(PREFIX)
 INCLUDEDIR?=$(PREFIX)/include
 LIBDIR?=$(EXEC_PREFIX)/${HOSTARCH}
@@ -54,6 +54,11 @@ errno.o \
 
 HOSTEDOBJS=\
 stdio/fopen.o \
+malloc/liballoc-sys.o \
+malloc/liballoc.o \
+unistd/brk.o \
+unistd/write.o \
+procerrhandler.o \
 
 OBJS=\
 $(FREEOBJS) \

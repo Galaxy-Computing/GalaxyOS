@@ -4,6 +4,7 @@
 struct gdt_ptr;
 struct gdt_entry;
 
+extern void flush_tss(void);
 extern void load_gdt(struct gdt_ptr *gdt_ptr);
 void gdt_set_gate(int num, unsigned char access);
 void gdt_set_gate_null(int num);

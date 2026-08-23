@@ -18,6 +18,7 @@
 #include <kernel/idt.h>
 #include <kernel/io.h>
 #include <kernel/sched.h>
+#include <kernel/exception.h>
 #include <stdio.h>
 #include <stdint.h>
 
@@ -92,13 +93,36 @@ void irq_install(void) {
     idt_set_gate(45, &irq13, 0x8E);
     idt_set_gate(46, &irq14, 0x8E);
     idt_set_gate(47, &irq15, 0x8E);
-    idt_set_gate(48, &irq16, 0x8E);
-    idt_set_gate(0x80, &irq0x80, 0x8E);
+    idt_set_gate(48, &irq16, 0xEE);
+    idt_set_gate(0x80, &irq0x80, 0xEE);
     
     //asm("sti");
 }
 
 void irq_handler(struct regs *r) {
+    if (currentps->procerr) {
+        if (r->cs & 0x3) {
+            if (currentps->procerrhandler != NULL) {
+                // fake a call to procerrhandler
+                // it's the thread's job to make sure the processor state does not get clobbered
+                r->useresp -= 8;
+                ((uint32_t*)r->useresp)[0] = r->eip;
+                ((uint32_t*)r->useresp)[1] = currentps->procerr;
+                r->eip = (uint32_t)&currentps->procerrhandler;
+                currentps->procerr = 0;
+            } else {
+                // the process hasn't set one, so just kill it
+                sched_exit_process(currentps->procerr);
+                currentps->procerr = 0;
+            }
+            
+        } else {
+            char msgbuf[48];
+            sprintf(msgbuf, "Kernel process crashed: code %i", currentps->procerr);
+            panic(msgbuf);
+        }
+    }
+    
     if (r->int_no > 32) {
         sched_check_suspended_threads(r->int_no - 32);
     }

@@ -60,7 +60,7 @@ void dbgsh_main(void) {
         }
         else if (!strcmp(cmd, "ps")) {
             printf("id pl name\n");
-            for (uint32_t i = 0; i < last_pid-1; i++) {
+            for (int i = 0; i < last_pid; i++) {
                 printf("%i %i %s\n", i, processes[i]->privilege_level, processes[i]->name);
             }
         }
@@ -81,7 +81,7 @@ void dbgsh_main(void) {
             if (bd == NULL) {
                 printf("device doesn't exist\n");
             } else {
-                unsigned char* blockbuf = (char*)kmalloc(bd->blocksize);
+                unsigned char* blockbuf = (unsigned char*)kmalloc(bd->blocksize);
                 uint32_t readcount = bd->block(blockbuf, bd, 0, 16);
                 if (readcount) {
                     printf("%i bytes read successfully\n", readcount);

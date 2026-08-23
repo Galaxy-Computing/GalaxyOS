@@ -47,6 +47,7 @@ struct tss_entry_struct {
     uint32_t prev_tss; // The previous TSS - with hardware task switching these form a kind of backward linked list.
     uint32_t esp0;     // The stack pointer to load when changing to kernel mode.
     uint32_t ss0;      // The stack segment to load when changing to kernel mode.
+    
     // Everything below here is unused.
     uint32_t esp1; // esp and ss 1 and 2 would be used when switching to rings 1 or 2.
     uint32_t ss1;
@@ -72,6 +73,7 @@ struct tss_entry_struct {
     uint32_t ldt;
     uint16_t trap;
     uint16_t iomap_base;
+    uint32_t ssp;
 } __attribute__((packed));
 
 typedef struct tss_entry_struct tss_entry_t;
@@ -114,6 +116,7 @@ void write_tss(struct gdt_entry_bits *g) {
 
     tss_entry.ss0  = 0x10;  // Set the kernel stack segment.
     tss_entry.esp0 = get_esp_value(); // Set the kernel stack pointer.
+    tss_entry.iomap_base = sizeof(tss_entry);
     //note that CS is loaded from the IDT entry and should be the regular kernel code segment
 }
 
@@ -170,7 +173,7 @@ void gdt_set_gate_null(int num) {
 
 void gdt_setup(void) {
     /* Setup the GDT pointer and limit */
-    gp.limit = (sizeof(struct gdt_entry_bits) * 5) - 1;
+    gp.limit = (sizeof(struct gdt_entry_bits) * 6) - 1;
     gp.base = (unsigned int)&gdt;
 
     /* Our NULL descriptor */
@@ -184,6 +187,8 @@ void gdt_setup(void) {
     write_tss(&gdt[5]);
 
     load_gdt(&gp);
+
+    flush_tss();
 }
 
 void set_kernel_stack(uint32_t stack) { // Used when an interrupt occurs

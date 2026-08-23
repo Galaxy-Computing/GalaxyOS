@@ -19,6 +19,7 @@
 #include <kernel/vga.h>
 #include <kernel/vgatty.h>
 #include <kernel/kernel.h>
+#include <kernel/sched.h>
 #include <stdio.h>
 #include <stdarg.h>
 
@@ -112,6 +113,13 @@ void isrs_install(void) {
 }
 
 void exception_handle(struct regs *r) {
+    if (r->cs & 0x3) {
+        if (kmode) {
+            // hand the exception to the scheduler instead
+            sched_user_fault(r->int_no, r->err_code);
+            return;
+        }
+    }
     if (r->int_no < 32) {
         sprintf(exbuf, "CPU exception occurred: %s (0x%x)", cpumessages[r->int_no], r->int_no);
         panic(exbuf);

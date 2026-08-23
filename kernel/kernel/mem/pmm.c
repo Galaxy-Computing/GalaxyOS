@@ -52,15 +52,15 @@ address_t pmm_alloc_page(void) {
     // this code will be needed when we have paging to disk. right now, this is irrelevant since we don't have that ability.
     /*if(!pmem_stack_top) {
         //last effort to try to swap out something
-        //vmm_need_pages();
+        vmm_need_pages();
     }*/
 
     if(!pmem_stack_top) {
         /* seems we couldn't free any */
         panic("Out of physical memory");
-      }
+    }
 
-      return pmem_stack[--pmem_stack_top];
+    return pmem_stack[--pmem_stack_top];
 }
 
 /* free a single page */

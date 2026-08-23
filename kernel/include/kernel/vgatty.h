@@ -6,7 +6,7 @@
 
 void terminal_initialize(void);
 void terminal_putchar(char c);
-void terminal_write(const char* data, size_t size);
+size_t terminal_write(const char* data, size_t size);
 void terminal_writestring(const char* data);
 void terminal_setfgcolor(enum vga_color fg);
 void terminal_setbgcolor(enum vga_color bg);

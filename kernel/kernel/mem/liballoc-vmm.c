@@ -22,18 +22,28 @@
 
 #define PAGE_SIZE 0x1000
 
+int lock = 0;
+
 int liballoc_lock(void) {
     if (kmode) {
         asm("cli");
     }
-    return 0;
+    if (!lock) {
+        lock = 1;
+        return 0;
+    }
+    return 1;
 }
 
 int liballoc_unlock(void) {
     if (kmode) {
         asm("sti");
     }
-    return 0;
+    if (lock) {
+        lock = 0;
+        return 0;
+    }
+    return 1;
 }
 
 void *liballoc_alloc(size_t pages) {

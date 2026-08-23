@@ -28,6 +28,9 @@ void panic(const char *message) {
     printf("KERNEL PANIC\n");
     printf("Version: %s\n", K_VERSION);
     printf(message);
-    halt();
+    asm(
+        "cli\n\t"
+        "hlt\n\t"
+    );
     __builtin_unreachable();
 }

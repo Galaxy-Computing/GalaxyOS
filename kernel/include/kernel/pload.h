@@ -1,6 +1,7 @@
 #ifndef _KERNEL_PLOAD_H
 #define _KERNEL_PLOAD_H
 
-uint32_t pload_create_process_k(uint32_t* cr3);
+int pload_create_process_file(const char* path, char** args);
+int pload_load_process(int pid, int tid);
 
 #endif
