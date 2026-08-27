@@ -187,6 +187,7 @@ struct vfs_file *vfs_find_file(const char *path) {
 
 struct vfs_directory *vfs_find_directory(const char *path) {
     struct vfs_block_device *bd = vfs_find_block_device_by_path(path);
+    if (bd == NULL) return NULL;
 
     size_t len = strlen(path) + 1;
     char *pathdup = (char*)kmalloc(len);
@@ -222,19 +223,25 @@ char *vfs_file_name(int fd) {
 }
 
 struct vfs_file *vfs_create_file(const char *path) {
-    struct vfs_mount_point *fmount = vfs_find_block_device_by_path(path)->mountpoint;
+    struct vfs_block_device *bd = vfs_find_block_device_by_path(path);
+    if (bd == NULL) return NULL;
+    struct vfs_mount_point *fmount = bd->mountpoint;
     if (fmount == NULL) return NULL;
     return fmount->fsdriver->createfile(fmount, path);
 }
 
 struct vfs_directory *vfs_create_directory(const char *path) {
-    struct vfs_mount_point *fmount = vfs_find_block_device_by_path(path)->mountpoint;
+    struct vfs_block_device *bd = vfs_find_block_device_by_path(path);
+    if (bd == NULL) return NULL;
+    struct vfs_mount_point *fmount = bd->mountpoint;
     if (fmount == NULL) return NULL;
     return fmount->fsdriver->createdirectory(fmount, path);
 }
 
 int vfs_open(const char *path, int flags, ...) {
-    struct vfs_mount_point *fmount = vfs_find_block_device_by_path(path)->mountpoint;
+    struct vfs_block_device *bd = vfs_find_block_device_by_path(path);
+    if (bd == NULL) return -ENOENT;
+    struct vfs_mount_point *fmount = bd->mountpoint;
     if (fmount == NULL) return -ENOENT;
 
     struct vfs_file *vfsfile = vfs_find_file(path);

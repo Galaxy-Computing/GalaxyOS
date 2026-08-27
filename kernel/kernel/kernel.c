@@ -48,13 +48,8 @@ void kernel_loop(void) {
     // We're in the kernel thread
     for (;;) {
         #ifdef PS2KB
+        sched_suspend_current_thread(1); // wait for an IRQ 1 before checking the keyboard
         ps2kb_loop();
-        /*char printingchar;
-        size_t chars_read = term_read(&printingchar, 1);
-        if (chars_read) {
-            //asm("ud2");
-            if (printingchar) { term_write(&printingchar, 1); }
-        }*/
         #endif
     }
 }
@@ -131,7 +126,7 @@ uint32_t kernel_main(multiboot_info_t* mbd, unsigned int magic, unsigned int pag
     kernel_mount_system_volume(cmdline);
     
     sched_init();
-    uint32_t newesp = (uint32_t)(threads[sched_create_thread(sched_create_process(0, "glxykrnl"), 0, (uint32_t)&kernel_loop)]->esp_k);
+    sched_create_thread(sched_create_process(0, "glxykrnl.elf"), 0, (uint32_t)&kernel_loop);
     // this is sort of a nasty hack
     sched_pick_next();
     sched_pick_next();

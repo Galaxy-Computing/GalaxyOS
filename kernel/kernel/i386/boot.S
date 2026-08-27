@@ -406,7 +406,6 @@ isr_common_stub:
     pop %ds
     popa
     add $8, %esp      # Cleans up the pushed error code and pushed ISR number
-    sti
     iret           # pops 5 things at once: CS, EIP, EFLAGS, SS, and ESP!
 
 .global irq0
@@ -566,7 +565,7 @@ irq_common_stub:
     mov $sched_loop, %eax
     call *%eax                       # After this EAX will contain a pointer to the thread
     mov %eax, %ebx
-    push (%ebx)
+    push %ebx
     mov $set_kernel_stack, %eax
     call *%eax
     mov (%ebx), %esp
@@ -579,3 +578,9 @@ irq_common_stub:
     popa
     add $8, %esp
     iret
+
+# esp    = (t1sp)-68
+# eax    = ???
+# (t1sp) = -136
+# (t2sp) = -68
+# kstack = (t2sp)

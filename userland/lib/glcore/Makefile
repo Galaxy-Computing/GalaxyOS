@@ -21,6 +21,7 @@ CPPFLAGS:=$(CPPFLAGS)
 
 OBJS=\
 ps/exec.o \
+ps/wait.o \
 
 BINARIES=glcore.a
 

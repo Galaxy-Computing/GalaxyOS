@@ -25,6 +25,7 @@
 #include <kernel/klog.h>
 #include <kernel/ps2kb.h>
 #include <kernel/exception.h>
+#include <kernel/term.h>
 #include <stdio.h>
 #include <stdbool.h>
 
@@ -184,6 +185,7 @@ void ps2kb_handler(struct regs *r) {
 size_t ps2kb_read_chars(char *buf, size_t size) {
     size_t chars_read = 0;
     for (unsigned int i = keybuf_start; i < keybuf_end; i++) {
+        term_write(&keybuf[i], 1);
         if (i-keybuf_start > size) {
             break;
         }

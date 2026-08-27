@@ -67,13 +67,13 @@ struct process {
 struct thread {
     uint32_t  *esp_k;
     uint32_t  *cr3;         // pointer to the page tables (this should match the one in process)
+    uint32_t   privilege_level;
 
     // anything after this comment can be changed without interfering with the assembly code
     int       pid;
     int       wait;         // this is set to the irq that is being waited for if the thread is suspended, or the pid of the process it's waiting for
     int       stackpdi;     // index into cr3 of the location of the stack page directory for this thread
     uint32_t  *entrypoint;  // this is invalid unless state = THREAD_STATE_STARTING
-    uint8_t   privilege_level;
     uint8_t   state;
 } __attribute__((packed)); // this is because this will be accessed from asm
 
@@ -86,6 +86,7 @@ int sched_set_cr3(int pid, uint32_t* newcr3);
 void sched_check_suspended_threads(uint8_t irq);
 void sched_suspend_thread(uint8_t irq, int tid);
 void sched_suspend_current_thread(uint8_t irq);
+int sched_wait_process(int pid);
 int sched_exit_process(int exitcode);
 uintptr_t sched_setbrk(void* addr);
 void sched_user_fault(int eno, uint32_t errorcode);

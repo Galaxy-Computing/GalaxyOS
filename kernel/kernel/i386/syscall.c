@@ -18,6 +18,7 @@
 #include <kernel/vfs.h>
 #include <kernel/pload.h>
 #include <kernel/sched.h>
+#include <kernel/kernel.h>
 #include <sys/types.h>
 #include <errno.h>
 
@@ -27,6 +28,10 @@ syscallfunc syscalltable[256] = {0};
 
 int syscall_exit(unsigned int args[]) {
     return sched_exit_process((int)args[0]);
+}
+
+int syscall_wait(unsigned int args[]) {
+    return sched_wait_process((int)args[0]);
 }
 
 int syscall_read(unsigned int args[]) {
@@ -80,20 +85,23 @@ int syscall_ehndlr(unsigned int args[]) {
 }
 
 void syscall_handler(struct regs *r) {
-    asm("sti"); // allow syscalls to be preempted (may cause weirdness but i hope it works)
+    //asm("sti"); // allow syscalls to be preempted (may cause weirdness but i hope it works)
+    kmode = 0;
     if (syscalltable[r->eax]) {
         unsigned int args[] = {r->ecx, r->edx, r->ebx, r->esi, r->edi, r->ebp};
         r->eax = syscalltable[r->eax](args);
     } else {
         r->eax = -ENOSYS;
     }
-    asm("cli");
+    kmode = 1;
+    //asm("cli");
 }
 
 void syscall_init(void) {
     irq_install_handler(0x60, &syscall_handler);
 
     syscalltable[1]  = &syscall_exit;
+    syscalltable[2]  = &syscall_wait;
     syscalltable[3]  = &syscall_read;
     syscalltable[4]  = &syscall_write;
     syscalltable[5]  = &syscall_open;

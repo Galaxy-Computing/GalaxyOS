@@ -22,14 +22,14 @@ CPPFLAGS:=$(CPPFLAGS)
 OBJS=\
 main.o \
 
-BINARIES=init.elf
+BINARIES=gsh.elf
 
 .PHONY: all clean install install-headers
 .SUFFIXES: .o .c .S
 
 all: $(BINARIES)
 
-init.elf: $(OBJS)
+gsh.elf: $(OBJS)
 	$(CC) -o $@ $(CFLAGS) $(OBJS) $(LDFLAGS) -l:glcore.a
 
 .c.o:
@@ -44,8 +44,8 @@ clean:
 	rm -f $(OBJS:.o=.d) *.d */*.d */*/*.d
 
 install: $(BINARIES)
-	mkdir -p $(DESTDIR)$(PREFIX)
-	cp $(BINARIES) $(DESTDIR)$(PREFIX)
+	mkdir -p $(DESTDIR)$(PREFIX_BIN)
+	cp $(BINARIES) $(DESTDIR)$(PREFIX_BIN)
 
 install-headers:
 

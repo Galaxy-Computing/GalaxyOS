@@ -15,6 +15,7 @@
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 #include <kernel/gdt.h>
+#include <kernel/sched.h>
 #include <stdint.h>
 #include <string.h>
 
@@ -191,6 +192,13 @@ void gdt_setup(void) {
     flush_tss();
 }
 
-void set_kernel_stack(uint32_t stack) { // Used when an interrupt occurs
-    tss_entry.esp0 = stack;
+void set_kernel_stack(struct thread* thread) { // Used when an interrupt occurs
+    uint32_t newesp0 = (uint32_t)thread->esp_k;
+    // account for the stack frame being popped
+    if (thread->privilege_level) {
+        newesp0 += 76;
+    } else {
+        newesp0 += 68;
+    }
+    tss_entry.esp0 = newesp0;
 }

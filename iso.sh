@@ -10,7 +10,7 @@ cp -r sysroot/* isodir/
 cat > isodir/boot/grub/grub.cfg << EOF
 set color_normal=white/cyan
 menuentry "GalaxyOS Neptune" {
-	multiboot /boot/glxykrnl cd
+	multiboot /galaxyos/${HOSTARCH}/glxykrnl.elf cd
 }
 EOF
 grub-mkrescue -o galaxyos.iso isodir

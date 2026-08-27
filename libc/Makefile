@@ -58,6 +58,7 @@ malloc/liballoc-sys.o \
 malloc/liballoc.o \
 unistd/brk.o \
 unistd/write.o \
+unistd/read.o \
 procerrhandler.o \
 
 OBJS=\

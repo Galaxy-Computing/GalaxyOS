@@ -61,13 +61,13 @@ int pload_create_process(const char* data, const uint8_t privilege, const char* 
     processes[pid]->state = 2;
     processes[pid]->entrypoint = (uint32_t)data; // we're borrowing this field to store the location of the elf data in memory
     processes[pid]->argv = args;
-    sched_create_thread(pid, 0, 0); // entrypoint can be 0 here since we will set that later
+    sched_create_thread(pid, 0, 0xFEFEFEFE); // entrypoint can be this magic number here since we will set that later
     return pid;
 }
 
 int pload_create_process_file(const char* path, char** args) {
     int fd = vfs_open(path, O_RDONLY);
-    if (fd == -1) { return -1; }
+    if (fd < 0) { return fd; }
     struct stat *filestats = kmalloc(sizeof(struct stat));
     if (vfs_fstat(fd, filestats) == -1) {  
         printf("could not stat file\n");
@@ -149,7 +149,7 @@ int pload_load_process(int pid, int tid) {
     *threads[tid]->entrypoint = header->e_entry;
     threads[tid]->state = THREAD_STATE_RUNNING;
     set_cr3(oldcr3);
-    asm("sti");
     kmode = 1;
+    asm("sti");
     return 0;
 }

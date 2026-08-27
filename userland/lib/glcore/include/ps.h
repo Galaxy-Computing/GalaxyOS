@@ -6,6 +6,8 @@
 // returns resulting pid, or -1 on error
 int psExecA(const char* path, const char* args[]);
 
+int psWait(int pid); // wait for a process to exit, returns exit code
+
 __attribute__((__noreturn__))
 void psExit(int code);
 
@@ -14,7 +16,7 @@ void psExit(int code);
 int psExecS(const char* path, const char* args);
 int psName(int pid, char* out);
 int psNameN(int pid, char* out, int size);
-int psWait(int pid); // wait for a process to exit, returns exit code
+
 int psKill(int pid);
 
 #endif

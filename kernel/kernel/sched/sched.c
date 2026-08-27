@@ -31,7 +31,7 @@
 
 #define PAGE_DIRECTORY_ADDR 0xFFFFF000
 
-#define THREAD_STACK_SIZE 4096 * 4
+#define THREAD_STACK_SIZE 4096 * 2
 
 #define REALLOC_INCREMENT 512
 #define DEFAULT_PROCESS_LIST_SIZE REALLOC_INCREMENT*2
@@ -91,9 +91,6 @@ int sched_create_thread(int ownerpid, uint8_t noqueue, uint32_t entrypoint) {
     // create the stack
     threads[last_tid]->esp_k = (uint32_t*)((uint32_t)kmalloc(THREAD_STACK_SIZE)+THREAD_STACK_SIZE); // this is for context switches and kernel level threads
 
-    vmm_map_stack(threads[last_tid]);
-    if (threads[last_tid]->stackpdi == -1) { return -1; }
-
     if (!processes[ownerpid]->privilege_level) {
         // set up the stack frame that the irq routine expects
         threads[last_tid]->esp_k = (uint32_t*)((uint32_t)(threads[last_tid]->esp_k) - 68);
@@ -109,11 +106,16 @@ int sched_create_thread(int ownerpid, uint8_t noqueue, uint32_t entrypoint) {
         threads[last_tid]->esp_k[9] = 0; // edx
         threads[last_tid]->esp_k[10] = 0; // ecx
         threads[last_tid]->esp_k[11] = last_tid; // eax
+        threads[last_tid]->esp_k[12] = 0;
+        threads[last_tid]->esp_k[13] = 0; 
         threads[last_tid]->esp_k[14] = entrypoint; // eip
         threads[last_tid]->esp_k[15] = 0x08; // cs
         threads[last_tid]->esp_k[16] = get_eflags(); // eflags
     } else {
         // userland thread
+        vmm_map_stack(threads[last_tid]);
+        if (threads[last_tid]->stackpdi == -1) { return -1; }
+
         threads[last_tid]->esp_k = (uint32_t*)((uint32_t)(threads[last_tid]->esp_k) - 76);
         threads[last_tid]->esp_k[0] = 0x20 | 3; // gs
         threads[last_tid]->esp_k[1] = 0x20 | 3; // fs
@@ -127,6 +129,8 @@ int sched_create_thread(int ownerpid, uint8_t noqueue, uint32_t entrypoint) {
         threads[last_tid]->esp_k[9] = 0; // edx
         threads[last_tid]->esp_k[10] = 0; // ecx
         threads[last_tid]->esp_k[11] = last_tid; // eax
+        threads[last_tid]->esp_k[12] = 0;
+        threads[last_tid]->esp_k[13] = 0; 
         threads[last_tid]->esp_k[14] = entrypoint; // eip
         threads[last_tid]->esp_k[15] = 0x18 | 3; // cs
         threads[last_tid]->esp_k[16] = 0b1000000010; // eflags
@@ -345,6 +349,19 @@ void sched_suspend_current_thread(uint8_t irq) {
     asm("int $0x30"); // this yields to the next thread
 }
 
+int sched_wait_process(int pid) {
+    if (pid >= last_pid) {
+        return -1;
+    }
+    if (pid < 0) {
+        return -1;
+    }
+    threads[currenttid]->wait = pid;
+    processes[pid]->waiting_threads++;
+    threads[currenttid]->state = THREAD_STATE_WAITING;
+    return 0;
+}
+
 int sched_find_next_tid(void) {
     if (queue_end-queue_loc > 0) {
         return queue[queue_loc];
@@ -367,6 +384,17 @@ void sched_check_suspended_threads(uint8_t irq) {
             }
         }
     }
+}
+
+int sched_check_waiting_thread(int tid) {
+    int pid = threads[tid]->wait;
+    if (processes[pid]->threadcount == 0) {
+        processes[pid]->waiting_threads--;
+        threads[tid]->wait = 0;
+        threads[tid]->state = THREAD_STATE_RUNNING;
+        return pid;
+    }
+    return -1;
 }
 
 void sched_pick_next(void) {
@@ -395,8 +423,28 @@ void sched_pick_next(void) {
                 currenttid = nexttid;
                 break;
             case THREAD_STATE_SUSPENDED:
-            case THREAD_STATE_WAITING:
                 // skip it
+                break;
+            case THREAD_STATE_WAITING:
+                // check for the process the thread is waiting for
+                int pid = sched_check_waiting_thread(nexttid);
+                if (pid != -1) {
+                    // that process has exited, so the thread is resumed
+                    currentps = processes[threads[nexttid]->pid];
+                    currenttid = nexttid;
+                    threads[nexttid]->esp_k[11] = processes[pid]->exitcode; // set eax to the exitcode of the process
+
+                    // check if there are still any waiting threads
+                    if (!processes[threads[nexttid]->pid]->waiting_threads) {
+                        // if there aren't any, we can safely free the entire process
+                        kfree(processes[threads[nexttid]->pid]->name);
+                        if (processes[threads[nexttid]->pid]->argv != NULL) {
+                            kfree(processes[threads[nexttid]->pid]->argv);
+                        }
+                        kfree(processes[threads[nexttid]->pid]);
+                        processes[threads[nexttid]->pid] = NULL; // set it to a null pointer just so we know this isn't valid
+                    }
+                }
                 break;
             case THREAD_STATE_STARTING:
                 // if it's a kernel thread, we have nothing to do here
@@ -462,6 +510,9 @@ void sched_pick_next(void) {
 
 struct thread *sched_loop(void) {
     sched_pick_next();
+    if (currenttid == -1) {
+        panic("sched_pick_next returned -1");
+    }
     return threads[currenttid];
 }
 

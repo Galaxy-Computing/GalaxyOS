@@ -7,10 +7,15 @@ extern "C" {
 
 #include <sys/types.h>
 
+#define STDIN_FILENO  0
+#define STDOUT_FILENO 1
+#define STDERR_FILENO 2
+
 int brk(void *addr);
 void *sbrk(intptr_t increment);
 
 ssize_t write(int fd, const void *buf, size_t count);
+ssize_t read(int fd, void *buf, size_t count);
 
 // these are not implemented, just here to make libgcc build without errors
 pid_t fork(void);

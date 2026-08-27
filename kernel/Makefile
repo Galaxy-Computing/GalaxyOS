@@ -41,11 +41,11 @@ $(LIBS) \
 .PHONY: all clean install install-headers install-kernel
 .SUFFIXES: .o .c .S
 
-all: glxykrnl
+all: glxykrnl.elf
 
-glxykrnl: $(OBJS) linker.ld
+glxykrnl.elf: $(OBJS) linker.ld
 	$(CC) -T linker.ld -o $@ $(CFLAGS) $(LINK_LIST)
-	grub-file --is-x86-multiboot glxykrnl
+	grub-file --is-x86-multiboot glxykrnl.elf
 
 .c.o:
 	$(CC) -MD -c $< -o $@ -std=gnu11 $(CFLAGS) $(CPPFLAGS)
@@ -64,9 +64,9 @@ install-headers:
 	mkdir -p $(DESTDIR)$(INCLUDEDIR)
 	cp -R --preserve=timestamps include/. $(DESTDIR)$(INCLUDEDIR)/.
 
-install-kernel: glxykrnl
-	mkdir -p $(DESTDIR)$(BOOTDIR)
-	cp glxykrnl $(DESTDIR)$(BOOTDIR)
+install-kernel: glxykrnl.elf
+	mkdir -p $(DESTDIR)$(LIBDIR)
+	cp glxykrnl.elf $(DESTDIR)$(LIBDIR)
 	cp kernel/$(HOSTARCH)/crti.o $(DESTDIR)$(LIBDIR)
 	cp kernel/$(HOSTARCH)/crtn.o $(DESTDIR)$(LIBDIR)
 	cp kernel/$(HOSTARCH)/crt0.o $(DESTDIR)$(LIBDIR)
