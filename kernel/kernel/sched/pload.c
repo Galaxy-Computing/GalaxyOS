@@ -49,7 +49,7 @@ int elf_isvalid(const unsigned char* data) {
     return 0;
 }
 
-int pload_create_process(const char* data, const uint8_t privilege, const char* name, char** args) {
+int pload_create_process(const char* data, const uint8_t privilege, const char* name, char** args, int nodup) {
     int elfvalid = elf_isvalid(data);
     if (elfvalid) { 
         printf("invalid elf file: %i\n", elfvalid);
@@ -60,12 +60,48 @@ int pload_create_process(const char* data, const uint8_t privilege, const char* 
     int pid = sched_create_process(privilege, name);
     processes[pid]->state = 2;
     processes[pid]->entrypoint = (uint32_t)data; // we're borrowing this field to store the location of the elf data in memory
-    processes[pid]->argv = args;
+    if (args != NULL) {
+        char* argptr = args[0];
+        int argc = 0;
+        while (argptr != NULL) {
+            argc++;
+            argptr = args[argc];
+        }
+        char** newargv = kmalloc(sizeof(char*) * argc);
+        processes[pid]->argc = argc;
+        for (int i = 0; i < argc; i++) {
+            int arglen = strlen(args[i]) + 1;
+            newargv[i] = kmalloc(arglen);
+            memcpy(newargv[i], args[i], arglen);
+        }
+        processes[pid]->argv = newargv;
+    }
+    
+    if (!nodup) {
+        // duplicate environment variables and working directory
+        processes[pid]->environ = kmalloc(sizeof(char**) * (currentps->environc + 1));
+        processes[pid]->environc = currentps->environc;
+        for (int i = 0; i < currentps->environc; i++) {
+            int evarlen = strlen(currentps->environ[i]) + 1;
+            processes[pid]->environ[i] = kmalloc(evarlen);
+            memcpy(processes[pid]->environ[i], currentps->environ[i], evarlen);
+        }
+        processes[pid]->environ[processes[pid]->environc] = NULL;
+        int pwdlen = strlen(currentps->pwd) + 1;
+        processes[pid]->pwd = kmalloc(pwdlen);
+        memcpy(processes[pid]->pwd, currentps->pwd, pwdlen);
+    } else {
+        // Set all values to null
+        processes[pid]->environ = kcalloc(1, sizeof(char**));
+        processes[pid]->environc = 0;
+        processes[pid]->pwd = kcalloc(1, 1);
+    }
+
     sched_create_thread(pid, 0, 0xFEFEFEFE); // entrypoint can be this magic number here since we will set that later
     return pid;
 }
 
-int pload_create_process_file(const char* path, char** args) {
+int pload_create_process_file(const char* path, char** args, int nodup) {
     int fd = vfs_open(path, O_RDONLY);
     if (fd < 0) { return fd; }
     struct stat *filestats = kmalloc(sizeof(struct stat));
@@ -84,7 +120,7 @@ int pload_create_process_file(const char* path, char** args) {
         return -1;
     }
     kfree(filestats);
-    int retval = pload_create_process(data, 3, vfs_file_name(fd), args);
+    int retval = pload_create_process(data, 3, vfs_file_name(fd), args, nodup);
     
     vfs_close(fd);
     return retval;
@@ -116,7 +152,7 @@ int pload_load_process(int pid, int tid) {
         address_t pages[pagecnt];
                 
         for (int x = 0; x < pagecnt; x++) {
-            pages[i] = pmm_alloc_page();
+            pages[x] = pmm_alloc_page();
         }
         uintptr_t loc = pheader->p_vaddr;
         if (vmm_map_pages_loc(pages, pagecnt, pheader->p_vaddr, 0x7) == NULL) {

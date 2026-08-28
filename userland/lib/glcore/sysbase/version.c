@@ -1,9 +1,8 @@
 #include <ps.h>
 #include <kernel/syscall.h>
-#include <stdlib.h>
 
-int psExecA(const char* path, char* args[]) {
-    int syscall_num = SYSCALL_EXEC;
+int sysVersionN(char* out, int size) {
+    int syscall_num = SYSCALL_GETVER;
     int retvalue;
 
     __asm__(
@@ -14,19 +13,14 @@ int psExecA(const char* path, char* args[]) {
         "mov %%eax, %0\n\t"
         : "=m" (retvalue)
         : "m"  (syscall_num),
-          "m"  (path),
-          "m"  (args)
+          "m"  (out),
+          "m"  (size)
         : "%eax", "%ecx", "%edx"
     );
 
     return retvalue;
 }
 
-int psExecS(const char* path, const char* args) {
-    return -1; // not implemented
-}
-
-__attribute__((__noreturn__))
-void psExit(int code) {
-    exit(code);
+int sysVersion(char* out) {
+    sysVersionN(out, 10000); // just call it with an extremely large number so it won't hit the size limit ever
 }

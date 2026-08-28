@@ -7,6 +7,7 @@ mkdir -p isodir/boot
 mkdir -p isodir/boot/grub
 
 cp -r sysroot/* isodir/
+cp -r files/${HOSTARCH}/* isodir/
 cat > isodir/boot/grub/grub.cfg << EOF
 set color_normal=white/cyan
 menuentry "GalaxyOS Neptune" {

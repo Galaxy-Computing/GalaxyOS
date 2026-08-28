@@ -227,7 +227,7 @@ int sched_set_cr3(int pid, uint32_t* newcr3) {
 uintptr_t sched_setbrk_true(void* addr, struct process *ps) {
     uintptr_t retval = ps->brk;
     if (addr != NULL) {
-        uintptr_t realbrk = (uintptr_t)addr + 1; // we add one here because if addr is on a page boundary, the last byte will be unmapped
+        uintptr_t realbrk = (uintptr_t)addr;
         if (realbrk % 4096) { realbrk += 4096 - (realbrk % 4096); } // round up to a page boundary
         if (ps->pgbrk == realbrk) { // we already have the proper amount of memory allocated, there's nothing that needs to be done
             ps->brk = (uintptr_t)addr;
@@ -378,9 +378,11 @@ int sched_pop_next_tid(void) {
 
 void sched_check_suspended_threads(uint8_t irq) {
     for (int i = 0; i < last_tid; i++) {
-        if (threads[i]->state == THREAD_STATE_SUSPENDED) {
-            if (threads[i]->wait == irq) {
-                threads[i]->state = THREAD_STATE_RUNNING;
+        if (threads[i] != NULL) {
+            if (threads[i]->state == THREAD_STATE_SUSPENDED) {
+                if (threads[i]->wait == irq) {
+                    threads[i]->state = THREAD_STATE_RUNNING;
+                }
             }
         }
     }
@@ -406,14 +408,15 @@ void sched_pick_next(void) {
             if (loop) {
                 // we have no active threads
                 nexttid = idletid;
-            }
-            // refresh the queue
-            queue_loc = queue_start;
-            nexttid = sched_pop_next_tid();
-            loop = 1;
-            if (nexttid == -1) {
-                // there are no threads in the queue
-                nexttid = idletid;
+            } else {
+                // refresh the queue
+                queue_loc = queue_start;
+                nexttid = sched_pop_next_tid();
+                loop = 1;
+                if (nexttid == -1) {
+                    // there are no threads in the queue
+                    nexttid = idletid;
+                }
             }
         }
         switch (threads[nexttid]->state) {

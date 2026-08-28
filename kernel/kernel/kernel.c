@@ -43,15 +43,14 @@ int kmode = 0;
 char cmdline[512] = {0};
 
 void kernel_loop(void) {
-    // We need to create our init process here since we need to be in a process to do it
-    
     // We're in the kernel thread
-    for (;;) {
-        #ifdef PS2KB
-        sched_suspend_current_thread(1); // wait for an IRQ 1 before checking the keyboard
-        ps2kb_loop();
-        #endif
-    }
+
+    // Suspend the thread until the init process dies
+    sched_wait_process(2);
+    asm("int $0x30"); // yield because the above function doesn't do that
+
+    // If it ever does die, panic
+    panic("Init process died");
 }
 
 // detect system volume and mount it
@@ -131,12 +130,9 @@ uint32_t kernel_main(multiboot_info_t* mbd, unsigned int magic, unsigned int pag
     sched_pick_next();
     sched_pick_next();
 
-    printf("Welcome to %s\n", K_VERSION);
-
-    //log_info("kmode switched to 1");
-
-    if (pload_create_process_file(K_SYSVOLNAME ":galaxyos/init.elf", NULL) == -1) {
-        printf("creating elf process returned -1!!\n");
+    // we pass init an empty string here to tell it that it is being executed from the kernel
+    if (pload_create_process_file(K_SYSVOLNAME ":galaxyos/init.elf", (char *[]){"", NULL}, 1) < 0) {
+        printf("creating init process returned negative!!\n");
     }
     //sched_create_thread(sched_create_process(0, "kdbgsh"), 0, (uint32_t)&dbgsh_main);
     kmode = 1;

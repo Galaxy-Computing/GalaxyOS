@@ -149,43 +149,40 @@ void ps2kb_succeed_command(void) {
 void ps2kb_handler(struct regs *r) {
     // We have a keyboard int
     key = ps2_recieve_data();
-    if (kmode) {
-        if (key == 0xFA) {
-            ps2kb_succeed_command();
-            return;
-        }
-        if (key == 0xFE) {
-            ps2kb_resend_command();
-            return;
-        }
-        if (!state) {
-            if (key == 0xF0) {
-                state = 1;
-            } else if (key == 0xE0) {
-                state = 2;
-            } else {
-                if (key == 0x58) { keydown[key] = !keydown[key]; }
-                else { keydown[key] = true; }
-                if (keydown[0x12] || keydown[0x59] || keydown[0x58]) {
-                    if (scancodeupper[key]) keybuf[keybuf_end++] = scancodeupper[key];
-                } else {
-                    if (scancodelower[key]) keybuf[keybuf_end++] = scancodelower[key];
-                }
-                keybuf_end = keybuf_end % KEYBUF_SIZE;
-            }
-        } else if (state == 1) {
-            if (key != 0x58) keydown[key] = false;
-            state = 0;
+    if (key == 0xFA) {
+        ps2kb_succeed_command();
+        return;
+    }
+    if (key == 0xFE) {
+        ps2kb_resend_command();
+        return;
+    }
+    if (!state) {
+        if (key == 0xF0) {
+            state = 1;
+        } else if (key == 0xE0) {
+            state = 2;
         } else {
-            state = 0;
+            if (key == 0x58) { keydown[key] = !keydown[key]; }
+            else { keydown[key] = true; }
+            if (keydown[0x12] || keydown[0x59] || keydown[0x58]) {
+                if (scancodeupper[key]) keybuf[keybuf_end++] = scancodeupper[key];
+            } else {
+                if (scancodelower[key]) keybuf[keybuf_end++] = scancodelower[key];
+            }
+            keybuf_end = keybuf_end % KEYBUF_SIZE;
         }
+    } else if (state == 1) {
+        if (key != 0x58) keydown[key] = false;
+        state = 0;
+    } else {
+        state = 0;
     }
 }
 
 size_t ps2kb_read_chars(char *buf, size_t size) {
     size_t chars_read = 0;
     for (unsigned int i = keybuf_start; i < keybuf_end; i++) {
-        term_write(&keybuf[i], 1);
         if (i-keybuf_start > size) {
             break;
         }

@@ -16,6 +16,9 @@ void *sbrk(intptr_t increment);
 
 ssize_t write(int fd, const void *buf, size_t count);
 ssize_t read(int fd, void *buf, size_t count);
+int close(int fd);
+int chdir(char* path);
+char* getcwd(char *buf, size_t size);
 
 // these are not implemented, just here to make libgcc build without errors
 pid_t fork(void);

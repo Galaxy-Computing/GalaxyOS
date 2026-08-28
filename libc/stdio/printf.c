@@ -184,7 +184,7 @@ int sprintf(char *str, const char* restrict format, ...) {
             format += len;
         }
     }
-
+    str[written] = '\0';
     va_end(parameters);
     return written;
 }

@@ -19,6 +19,7 @@
 #include <kernel/io.h>
 #include <kernel/sched.h>
 #include <kernel/exception.h>
+#include <kernel/ps2kb.h>
 #include <stdio.h>
 #include <stdint.h>
 
@@ -100,6 +101,8 @@ void irq_install(void) {
 }
 
 void irq_handler(struct regs *r) {
+    ps2kb_loop(); // this is here because we need to do this regularly
+
     if (currentps->procerr) {
         if (r->cs & 0x3) {
             if (currentps->procerrhandler != NULL) {

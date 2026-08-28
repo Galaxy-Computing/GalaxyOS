@@ -245,6 +245,7 @@ int vfs_open(const char *path, int flags, ...) {
     if (fmount == NULL) return -ENOENT;
 
     struct vfs_file *vfsfile = vfs_find_file(path);
+    if (vfsfile == NULL) return -ENOENT;
     struct vfs_file_open *vfsopenfile = kmalloc(sizeof(struct vfs_file_open));
     vfsopenfile->file = vfsfile;
     vfsopenfile->fsdriver = vfsfile->volume->fsdriver;
@@ -323,6 +324,12 @@ int vfs_fstat(int fd, struct stat *statbuf) {
     statbuf->st_blksize = currentps->openfiles[fd]->file->volume->blockdevice->blocksize;
     statbuf->st_blocks = (currentps->openfiles[fd]->file->size / currentps->openfiles[fd]->file->volume->blockdevice->blocksize) + 1;
     return 0;
+}
+
+int vfs_size(int fd) {
+    if (!(currentps->openfiles_loc > fd)) return -1;
+    if (currentps->openfiles[fd] == NULL) return -1;
+    return currentps->openfiles[fd]->file->size;
 }
 
 void vfs_init(void) {

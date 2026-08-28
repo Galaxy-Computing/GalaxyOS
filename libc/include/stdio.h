@@ -32,7 +32,6 @@ int sprintf(char *str, const char* restrict format, ...);
 int putchar(int);
 int puts(const char*);
 FILE *fopen(const char *filename, const char *mode);
-int open(const char *pathname, int flags, ...);
 
 // these are not implemented, just here to make libgcc build without errors
 int fflush(FILE*);

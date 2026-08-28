@@ -27,8 +27,8 @@ FREEOBJS=\
 stdio/printf.o \
 stdio/putchar.o \
 stdio/puts.o \
-stdio/open.o \
 stdio/getchar.o \
+fcntl/open.o \
 stdlib/abort.o \
 stdlib/atoi.o \
 stdlib/itoa.o \
@@ -43,8 +43,10 @@ string/strcmp.o \
 string/strncmp.o \
 string/strncpy.o \
 string/strcat.o \
+string/strncat.o \
 string/strchr.o \
 string/strcpy.o \
+string/strdup.o \
 string/strtok.o \
 string/strspn.o \
 string/strpbrk.o \
@@ -59,6 +61,9 @@ malloc/liballoc.o \
 unistd/brk.o \
 unistd/write.o \
 unistd/read.o \
+unistd/close.o \
+unistd/chdir.o \
+unistd/getcwd.o \
 procerrhandler.o \
 
 OBJS=\

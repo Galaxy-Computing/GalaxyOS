@@ -4,14 +4,14 @@ HOSTARCH!=../../../target-triplet-to-arch.sh $(HOST)
 
 CFLAGS?=-O0 -g
 CPPFLAGS?=
-LDFLAGS?=
+LDFLAGS?="-L=/galaxyos/${HOSTARCH}"
 LIBS?=
 
 DESTDIR?=
 PREFIX?=/galaxyos
 EXEC_PREFIX?=$(PREFIX)
 INCLUDEDIR?=$(PREFIX)/include
-LIBDIR?=$(EXEC_PREFIX)/${HOSTARCH}
+PREFIX_BIN?=$(EXEC_PREFIX)/${HOSTARCH}
 
 CFLAGS:=$(CFLAGS) -Wall -Wextra
 CPPFLAGS:=$(CPPFLAGS) -Iinclude
@@ -20,22 +20,17 @@ CFLAGS:=$(CFLAGS)
 CPPFLAGS:=$(CPPFLAGS)
 
 OBJS=\
-ps/exec.o \
-ps/wait.o \
-ps/env.o \
-fs/size.o \
-fs/list.o \
-sysbase/version.o \
+main.o \
 
-BINARIES=glcore.a
+BINARIES=ls.elf
 
-.PHONY: all clean install install-headers install-libs
+.PHONY: all clean install install-headers
 .SUFFIXES: .o .c .S
 
 all: $(BINARIES)
 
-glcore.a: $(OBJS)
-	$(AR) rcs $@ $(OBJS)
+ls.elf: $(OBJS)
+	$(CC) -o $@ $(CFLAGS) $(OBJS) $(LDFLAGS) -l:glcore.a
 
 .c.o:
 	$(CC) -MD -c $< -o $@ -std=gnu11 $(CFLAGS) $(CPPFLAGS)
@@ -48,14 +43,10 @@ clean:
 	rm -f $(OBJS) *.o */*.o */*/*.o
 	rm -f $(OBJS:.o=.d) *.d */*.d */*/*.d
 
-install: install-headers install-libs
+install: $(BINARIES)
+	mkdir -p $(DESTDIR)$(PREFIX_BIN)
+	cp $(BINARIES) $(DESTDIR)$(PREFIX_BIN)
 
 install-headers:
-	mkdir -p $(DESTDIR)$(INCLUDEDIR)
-	cp -R --preserve=timestamps include/. $(DESTDIR)$(INCLUDEDIR)/.
-
-install-libs: $(BINARIES)
-	mkdir -p $(DESTDIR)$(LIBDIR)
-	cp $(BINARIES) $(DESTDIR)$(LIBDIR)
 
 -include $(OBJS:.o=.d)

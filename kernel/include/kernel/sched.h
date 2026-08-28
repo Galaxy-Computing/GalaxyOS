@@ -26,8 +26,6 @@ struct ps_region {
 
 struct process {
     char       *name;
-    char       **argv;
-    int        argc;
     int        threadcount;
     int        *tids;      // this is a dynamic array
     int        tids_size;
@@ -35,6 +33,13 @@ struct process {
     uint32_t   *cr3_virt;  // where the process's page directory is mapped in kernel space
     int        pid;
     uint32_t   entrypoint;
+
+    char       **environ;
+    int        environc;
+    char       *pwd;
+
+    char       **argv;
+    int        argc;
 
     uintptr_t  brk;        // pointer to the program break in user memory
     uintptr_t  pgbrk;      // pointer to the end of the actual last page allocated

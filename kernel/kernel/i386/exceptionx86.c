@@ -113,8 +113,8 @@ void isrs_install(void) {
 }
 
 void exception_handle(struct regs *r) {
-    if (r->cs & 0x3) {
-        if (kmode) {
+    if (currenttid != -1) {
+        if (threads[currenttid]->privilege_level) {
             // hand the exception to the scheduler instead
             sched_user_fault(r->int_no, r->err_code);
             return;

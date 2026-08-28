@@ -134,5 +134,6 @@ int vfs_close(int fd);
 ssize_t vfs_read(int fd, void *buf, size_t count);
 ssize_t vfs_write(int fd, const void *buf, size_t count);
 int vfs_fstat(int fd, struct stat *statbuf);
+int vfs_size(int fd);
 
 #endif

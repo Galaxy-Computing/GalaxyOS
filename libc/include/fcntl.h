@@ -7,4 +7,6 @@
 #define O_CREAT   0b010000
 #define O_TMPFILE 0b100000
 
+int open(const char *pathname, int flags, ...);
+
 #endif

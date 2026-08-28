@@ -1,5 +1,10 @@
-#ifndef _GLCORE_PS_H
-#define _GLCORE_PS_H
+#ifndef _GLCORE_FS_H
+#define _GLCORE_FS_H
+
+#include <stddef.h>
+
+int fsSize(int fd);
+int fsList(const char* path, char* buf, size_t size, int dirs); // returns a list of files/directories in a directory, with '\n' being the delimiter
 
 // TODO: implement
 // these are here to define what will be implemented later

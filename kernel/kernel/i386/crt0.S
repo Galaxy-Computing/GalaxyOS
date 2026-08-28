@@ -3,10 +3,10 @@
 # .extern initialize_standard_library
 .global _start
 _start:
-	# Set up end of the stack frame linked list.
-	mov $0, %ebp
-	push %ebp # eip=0
-	push %ebp # ebp=0
+	# This puts all our arguments on the stack, including argc and argv at the top
+	mov $14, %eax
+	int $0x80
+
 	mov %esp, %ebp
 
 	# Tell the kernel where __procerrhandler is
@@ -14,25 +14,17 @@ _start:
 	mov $11, %eax
 	int $0x80
 
-	# We need those in a moment when we call main.
-	push %ecx
-	push %edx
-
 	# Prepare signals, memory allocation, stdio and such.
 	# call initialize_standard_library
 
 	# Run the global constructors.
 	call _init
 
-	# Restore argc and argv.
-	pop %edi
-	pop %esi
-
 	# Run main
 	call main
 
 	# Terminate the process with the exit code.
-	mov %eax, %ecx
+	push %eax
 	call exit
 .size _start, . - _start
 
