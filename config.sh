@@ -1,5 +1,7 @@
-SYSTEM_HEADER_PROJECTS="libc kernel userland"
-PROJECTS="libc kernel userland"
+if [[ ! -v PROJECTS ]]; then
+  SYSTEM_HEADER_PROJECTS="libc kernel userland"
+  PROJECTS="libc kernel userland"
+fi
 
 export MAKE=${MAKE:-make "$@"}
 export HOST=${HOST:-$(./default-host.sh)}
@@ -15,7 +17,7 @@ export BOOTDIR=/boot
 export LIBDIR=$EXEC_PREFIX/${HOSTARCH}
 export INCLUDEDIR=$PREFIX/include
 
-export CFLAGS='-O0 -g -Wall -Wextra -std=gnu17'
+export CFLAGS='-Og -g -Wall -Wextra -std=gnu17 -mtune=i686 -march=i486'
 export CPPFLAGS=''
 export LDFLAGS="-L=/galaxyos/${HOSTARCH}"
 

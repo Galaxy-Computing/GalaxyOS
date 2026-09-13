@@ -111,6 +111,7 @@ extern uint32_t vfs_last_blockdevice;
 void vfs_init(void);
 struct vfs_block_device *vfs_find_block_device_by_path(const char* path);
 struct vfs_block_device *vfs_find_block_device_by_name(const char* name);
+struct vfs_block_device *vfs_get_block_device(uint32_t id);
 void vfs_append_directory(struct vfs_directory* parent, struct vfs_directory* child);
 void vfs_append_directory_file(struct vfs_directory* parent, struct vfs_file* child);
 
@@ -124,9 +125,12 @@ uint32_t vfs_register_blockdevice(struct vfs_block_device *newblockdevice);
 uint32_t vfs_register_fsdriver(struct vfs_fs_driver *fsdriver);
 struct vfs_fs_driver *vfs_detect_fs(struct vfs_block_device *blockdevice);
 struct vfs_mount_point *vfs_mount(struct vfs_block_device *blockdevice, const struct vfs_fs_driver *fsdriver, const bool rw, const char* name);
+struct vfs_mount_point *vfs_mount_by_id(uint32_t blockdevice, const struct vfs_fs_driver *fsdriver, const bool rw, const char* name);
 
 uint32_t vfs_read_blocks(unsigned char *dest, const struct vfs_block_device* blockdevice, const uint32_t blocks, const uint32_t index);
 uint32_t vfs_write_blocks(unsigned char *data, const struct vfs_block_device* blockdevice, const uint32_t blocks, const uint32_t index);
+
+unsigned char *vfs_read_file_k(char *path, uint32_t *out_size);
 
 // vfs implementations of the system calls
 int vfs_open(const char *path, int flags, ...);

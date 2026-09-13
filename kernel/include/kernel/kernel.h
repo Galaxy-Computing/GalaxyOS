@@ -5,7 +5,7 @@
 // short version = major.minor.build-branch
 #define K_OSNAME        "GalaxyOS"
 #define K_RELEASE       "Neptune"
-#define K_VERSION_SHORT "0.1.22-dev"
+#define K_VERSION_SHORT "0.1.23-dev"
 #define K_VERSION       K_OSNAME " " K_RELEASE " " K_VERSION_SHORT
 
 #define K_SYSVOLNAME    "local"

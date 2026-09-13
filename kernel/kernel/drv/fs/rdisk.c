@@ -46,13 +46,15 @@ uint32_t rdisk_block(unsigned char* data, const struct vfs_block_device* blockde
     return RDISK_BLOCK_SIZE;
 }
 
-uint32_t rdisk_create(uint32_t blocks) {
+uint32_t rdisk_create(uint32_t blocks, char* name) {
     struct vfs_block_device tempdevice;
     tempdevice.block = &rdisk_block;
     tempdevice.blocksize = RDISK_BLOCK_SIZE;
     tempdevice.blocks = blocks;
     tempdevice.mounted = 0;
     tempdevice.ispartition = 2;
+
+    tempdevice.name = strdup(name);
 
     // we're using the extraa field here as a pointer to the device contents in memory
     tempdevice.extraa = kmalloc(blocks*RDISK_BLOCK_SIZE);

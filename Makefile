@@ -1,7 +1,10 @@
-.PHONY: build test install clean
+.PHONY: full kernel test install clean
 
-build:
+full:
 	./iso.sh
+
+kernel:
+	export PROJECTS="libc kernel"; export SYSTEM_HEADER_PROJECTS="libc kernel"; ./build.sh
 
 test:
 	./qemu.sh

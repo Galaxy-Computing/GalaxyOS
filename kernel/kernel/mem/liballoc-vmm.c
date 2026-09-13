@@ -47,10 +47,16 @@ int liballoc_unlock(void) {
 }
 
 void *liballoc_alloc(size_t pages) {
-    address_t addr[1024];
     if (pages > 1024) {
-        return NULL; // we can't allocate more than this amount of pages at a time
+        void* start = liballoc_alloc(1024);
+        for (int i = 0; i < (pages/1024)-1; i++) {
+            liballoc_alloc(1024);
+        }
+        liballoc_alloc(pages % 1024);
+        return start;
     }
+
+    address_t addr[1024];
     if (pages < 1) {
         return NULL; // can't allocate 0 pages
     }

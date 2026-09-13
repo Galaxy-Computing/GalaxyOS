@@ -59,7 +59,7 @@ struct vfs_block_device *vfs_find_block_device_by_path(const char* path) {
 }
 
 struct vfs_block_device *vfs_get_block_device(uint32_t id) {
-    if (vfs_last_blockdevice - 1 > id) {
+    if ((vfs_last_blockdevice - 1) > id) {
         return NULL; // this block device doesn't exist
     }
     return &vfs_blockdevices[id];
@@ -103,7 +103,7 @@ uint32_t vfs_register_blockdevice(struct vfs_block_device *newblockdevice) {
 
     memcpy(&vfs_blockdevices[vfs_last_blockdevice-1], newblockdevice, sizeof(struct vfs_block_device));
     vfs_blockdevices[vfs_last_blockdevice-1].id = vfs_last_blockdevice;
-    return vfs_last_blockdevice;
+    return vfs_last_blockdevice-1;
 }
 
 struct vfs_mount_point *vfs_mount_direct(struct vfs_block_device *blockdevice, const struct vfs_mount_point *mp) {
@@ -304,6 +304,17 @@ ssize_t vfs_read(int fd, void *buf, size_t count) {
     ssize_t bytesread = currentps->openfiles[fd]->fsdriver->accessfile(currentps->openfiles[fd]->file->volume->blockdevice, false, currentps->openfiles[fd]->file, buf, count, currentps->openfiles[fd]->loc);
     currentps->openfiles[fd]->loc += bytesread;
     return bytesread;
+}
+
+unsigned char *vfs_read_file_k(char *path, uint32_t *out_size) {
+    struct vfs_file *file = vfs_find_file(path);
+    if (file == NULL) { return NULL; }
+    unsigned char *buf = kmalloc(file->size);
+    *out_size = file->size;
+
+    file->volume->fsdriver->accessfile(file->volume->blockdevice, false, file, buf, file->size, 0);
+
+    return buf;
 }
 
 ssize_t vfs_write(int fd, const void *buf, size_t count) {

@@ -10,9 +10,9 @@
 </div>
 
 ## Building
-Building this OS requires a copy of i686-galaxyos-gcc, which can be built from the repositories for gcc and binutils from this organization.
+Building this OS requires a copy of i686-galaxyos-gcc, which can be built using `toolchain.sh` if you haven't already.
 
-After you have obtained the cross compiler, you can run `make` in the root directory of the repository to build the OS. The resulting ISO image will be placed in the root and called `galaxyos.iso`.
+After you have obtained the cross compiler, you can run `make` in the root directory of the repository to build the OS. The resulting ISO image will be placed in the root and will be called `galaxyos.iso`.
 
 Running `make test` will build the OS and automatically start it in QEMU, and will wait for `gdb` to connect. If you do not like this behaviour, you can change it in the `qemu.sh` file.
 

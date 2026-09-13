@@ -32,15 +32,15 @@ struct vfs_directory *iso9660_createdirectory(struct vfs_mount_point* mountpoint
 int iso9660_isvalid(struct vfs_block_device *blockdevice);
 
 struct vfs_fs_driver iso9660_vfsdrvinfo = {
-    .mount = &iso9660_attempt_mount,
-    .accessfile = &iso9660_accessfile,
-    .createfile = &iso9660_createfile,
+    .mount           = &iso9660_attempt_mount,
+    .accessfile      = &iso9660_accessfile,
+    .createfile      = &iso9660_createfile,
     .createdirectory = &iso9660_createdirectory,
-    .isvalid = &iso9660_isvalid,
+    .isvalid         = &iso9660_isvalid,
     .name = "ISO9660"
 };
 
-int round_up_integer(int number, int multiple) {
+inline int round_up_integer(int number, int multiple) {
     if (multiple == 0) return number;
     return ((number + multiple - 1) / multiple) * multiple;
 }
@@ -238,7 +238,7 @@ int iso9660_attempt_mount(struct vfs_block_device* blockdevice, const bool rw) {
     // save the two pointers to the cached information
     struct iso9660_fs_info *fsinfo = (struct iso9660_fs_info*)kmalloc(sizeof(struct iso9660_fs_info));
     mountpoint->extra = (void*)fsinfo;
-    fsinfo->pvd = pvd; // pvd here is 0x2badb002??
+    fsinfo->pvd = pvd;
     fsinfo->pathtable = pathtable;
 
     struct vfs_directory *root = (struct vfs_directory*)kmalloc(sizeof(struct vfs_directory));
@@ -354,7 +354,7 @@ ssize_t iso9660_accessfile(struct vfs_block_device* blockdevice, const bool writ
         return -1;
     }
 
-    memcpy(buffer, tempbuf, bytes);
+    memcpy(buffer, &tempbuf[loc % blockdevice->blocksize], bytes);
     kfree(tempbuf);
     return bytes;
 }
@@ -370,12 +370,19 @@ struct vfs_directory *iso9660_createdirectory(struct vfs_mount_point* mountpoint
 // Returns 1 if the blockdevice contains a valid iso9660 filesystem
 int iso9660_isvalid(struct vfs_block_device *blockdevice) {
     struct iso9660_primary_volume_descriptor *pvd = (struct iso9660_primary_volume_descriptor*)kmalloc(blockdevice->blocksize);
-    if (!vfs_read_blocks((unsigned char*)pvd, blockdevice, 1, 16)) return 1;
-    if (pvd->type != 1) return 0; // why is the PVD not here
+    if (!vfs_read_blocks((unsigned char*)pvd, blockdevice, 1, 16)) {
+        kfree(pvd);
+        return 0;
+    }
+    if (pvd->type != 1) { 
+        kfree(pvd);
+        return 0; // why is the PVD not here
+    }
 
     char identifier[6];
     strncpy(identifier, pvd->identifier, 5);
     identifier[5] = 0;
+    kfree(pvd);
     if (strcmp(identifier, "CD001")) return 0; // this is not an ISO9660 filesystem
 
     return 1; // this should be an iso9660 fs

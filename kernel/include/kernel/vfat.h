@@ -60,15 +60,51 @@ typedef struct fat_BS {
 }__attribute__((packed)) fat_BS_t;
 
 struct fat_info {
-    uint8_t fat_type;
+    uint8_t  fat_type;
     uint32_t total_clusters;
     uint32_t fat_size;
+    uint32_t first_data_sector;
     uint32_t data_sectors;
     uint32_t total_sectors;
     uint32_t root_dir_sectors;
+    uint32_t root_dir_lba;
+    uint32_t root_dir_cluster;
+    uint32_t first_fat_sector;
+
+    unsigned char* fat_table;
     
     fat_BS_t *fatbs;
     struct vfs_block_device* blockdevice;
+
+    struct fat_directory** fentries;
+    uint32_t fentries_loc;
+    uint32_t fentries_size;
+};
+
+struct fat_directory {
+    char     name[11];
+    uint8_t  attrib;
+    uint8_t  nt_reserved;
+    uint8_t  time_hundredths;
+    uint16_t time;
+    uint16_t date;
+    uint16_t a_date;
+    uint16_t cluster_hi;
+    uint16_t m_time;
+    uint16_t m_date;
+    uint16_t cluster_lo;
+    uint32_t size;
+} __attribute__((packed));
+
+struct fat_lfn {
+    uint8_t     index;
+    uint16_t    chars_a[5]; 
+    uint8_t     attrib;
+    uint8_t     etype;
+    uint8_t     checksum;
+    uint16_t    chars_b[6];
+    uint16_t    reserved;
+    uint16_t    chars_c[2];
 };
 
 void vfat_init(void);

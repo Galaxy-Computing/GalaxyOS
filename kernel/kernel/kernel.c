@@ -42,6 +42,11 @@ int kmode = 0;
 
 char cmdline[512] = {0};
 
+inline uint32_t round_up_integer(uint32_t number, uint32_t multiple) {
+    if (multiple == 0) return number;
+    return ((number + multiple - 1) / multiple) * multiple;
+}
+
 void kernel_loop(void) {
     // We're in the kernel thread
 
@@ -57,7 +62,6 @@ void kernel_loop(void) {
 // either provide this with the name of a block device, or one of these special indicators:
 // cd = the system volume is an atapi block device
 void kernel_mount_system_volume(char* info) {
-    struct vfs_block_device *bd = NULL;
     if (!strlen(info)) {
         // we weren't provided any information
         panic("Error finding system volume: No information provided");
@@ -65,7 +69,32 @@ void kernel_mount_system_volume(char* info) {
     if (!strcmp(info, "cd")) {
         if (atapi_disccount == 1) {
             // found the cd
-            bd = &vfs_blockdevices[atapi_disc-1];
+            struct vfs_block_device *discbd = &vfs_blockdevices[atapi_disc];
+            // mount the disc
+            struct vfs_fs_driver* fsdriver = vfs_detect_fs(discbd);
+            if (vfs_mount(discbd, fsdriver, false, "cd") == NULL) {
+                panic("Error finding system volume: vfs_mount() call returned NULL");
+            }
+            log_ok("Mounted CD at \"cd\"");
+
+            // create a ramdisk
+            uint32_t size = 0;
+            unsigned char *buf = vfs_read_file_k("cd:boot.img", &size);
+            if (buf == NULL) {
+                panic("Error finding system volume: CD does not contain a valid \"boot.img\"");
+            }
+
+            uint32_t bdid = rdisk_create(round_up_integer(size, 512) / 512, "rdisk");
+            struct vfs_block_device *bd = vfs_get_block_device(bdid);
+            memcpy(bd->extraa, buf, size);
+            struct vfs_fs_driver* rdfsdriver = vfs_detect_fs(bd);
+            if (rdfsdriver == NULL) {
+                panic("Error mounting system volume: Filesystem not supported");
+            }
+
+            if (vfs_mount(bd, rdfsdriver, true, K_SYSVOLNAME) == NULL) {
+                panic("Error mounting system volume: vfs_mount() call returned NULL");
+            }
         } else if (atapi_disccount > 1) {
             panic("Error finding system volume: Please remove all other discs and reboot");
         } else {
@@ -77,17 +106,17 @@ void kernel_mount_system_volume(char* info) {
         if (bd == NULL) {
             panic("Error finding system volume: The block device does not exist");
         } 
-    }
 
-    struct vfs_fs_driver* fsdriver = vfs_detect_fs(bd);
-    if (fsdriver == NULL) {
-        panic("Error finding system volume: Filesystem not supported");
-    }
+        struct vfs_fs_driver* fsdriver = vfs_detect_fs(bd);
+        if (fsdriver == NULL) {
+            panic("Error mounting system volume: Filesystem not supported");
+        }
 
-    if (vfs_mount(bd, fsdriver, false, K_SYSVOLNAME) == NULL) {
-        panic("Error finding system volume: vfs_mount() call returned NULL");
+        if (vfs_mount(bd, fsdriver, false, K_SYSVOLNAME) == NULL) {
+            panic("Error mounting system volume: vfs_mount() call returned NULL");
+        }
     }
-    log_ok("System volume mounted at \"local\"");
+    log_ok("System volume mounted at \"" K_SYSVOLNAME "\"");
 }
 
 uint32_t kernel_main(multiboot_info_t* mbd, unsigned int magic, unsigned int pagetable) {

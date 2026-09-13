@@ -578,9 +578,3 @@ irq_common_stub:
     popa
     add $8, %esp
     iret
-
-# esp    = (t1sp)-68
-# eax    = ???
-# (t1sp) = -136
-# (t2sp) = -68
-# kstack = (t2sp)
