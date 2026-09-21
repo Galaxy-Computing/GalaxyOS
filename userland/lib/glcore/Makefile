@@ -23,9 +23,12 @@ OBJS=\
 ps/exec.o \
 ps/wait.o \
 ps/env.o \
+ps/intface.o \
+ps/thread.o \
 fs/size.o \
 fs/list.o \
 sysbase/version.o \
+sysbase/memusage.o \
 
 BINARIES=glcore.a
 

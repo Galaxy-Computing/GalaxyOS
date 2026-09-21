@@ -30,7 +30,7 @@ int open(const char *pathname, int flags, ...) {
         mode_t mode = va_arg(args, mode_t);
         va_end(args);
 
-        __asm__(
+        __asm__ volatile(
             "mov %1, %%eax\n\t"
             "mov %2, %%ecx\n\t"
             "mov %3, %%edx\n\t"
@@ -56,7 +56,7 @@ int open(const char *pathname, int flags, ...) {
     int syscall_num = SYSCALL_OPEN;
     va_end(args);
 
-    __asm__(
+    __asm__ volatile(
         "mov %1, %%eax\n\t"
         "mov %2, %%ecx\n\t"
         "mov %3, %%edx\n\t"

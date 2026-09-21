@@ -6,6 +6,8 @@
 #include <fs.h>
 #include <sysbase.h>
 
+#include "init.h"
+
 #define CONFIG_CMDLINE "local:galaxyos/config/cmdline"
 #define CONFIG_PATH "local:galaxyos/config/path"
 #define DEFAULT_PWD "local:"
@@ -45,10 +47,25 @@ int main(int argc, char* argv[]) {
     printf("init: setting path variable\n");
     psSetEVar("PATH", pathvar, sizepath);
 
+    printf("init: starting confsrv\n");
+    psExecA("local:galaxyos/i386/confsrv.elf", (char *[]){"confsrv.elf", NULL});
+
+    printf("init: starting power management thread\n");
+    int newtid = psThreadFork();
+    if (newtid == 0) {
+        // child thread
+        powerthread();
+
+        // should never be down here
+        printf("init: power management thread returned!!\n");
+        for (;;) {}
+    }
+
     printf("init: starting shell binary\n");
     for (;;) {
+        // execute the shell binary
         int shellpid = psExecA(shpath, (char *[]){shpath, NULL});
-        if (shellpid == -1) printf("psExecA() failed\n"); // execute the shell binary
+        if (shellpid == -1) printf("psExecA() failed\n");
         psWait(shellpid);
         printf("init: shell died, starting it again\n");
     }

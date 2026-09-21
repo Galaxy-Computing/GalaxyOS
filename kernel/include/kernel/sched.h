@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <kernel/vfs.h>
 #include <kernel/term.h>
+#include <kernel/idt.h>
 
 #define THREAD_STATE_RUNNING 0
 #define THREAD_STATE_SUSPENDED 1
@@ -48,6 +49,8 @@ struct process {
     struct ps_region **psregions;     // memory regions allocated by the loader
     uint32_t         psregions_count;
 
+    uint32_t   pages_used;
+
     uint8_t    privilege_level;
     uint8_t    state;           // set to 1 if the process is exiting
     uint32_t   exitcode;
@@ -78,11 +81,15 @@ struct thread {
     int       pid;
     int       wait;         // this is set to the irq that is being waited for if the thread is suspended, or the pid of the process it's waiting for
     int       stackpdi;     // index into cr3 of the location of the stack page directory for this thread
+    uint32_t  *stackpt;
     uint32_t  *entrypoint;  // this is invalid unless state = THREAD_STATE_STARTING
     uint8_t   state;
+
+    struct interface* wait_msg;
 } __attribute__((packed)); // this is because this will be accessed from asm
 
 int sched_create_thread(int ownerpid, uint8_t noqueue, uint32_t entrypoint);
+int sched_fork_thread(int tid, struct regs* r);
 int sched_create_process(uint8_t privilege, const char* name);
 void sched_init(void);
 struct thread *sched_loop(void);

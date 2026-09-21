@@ -6,7 +6,7 @@ char* getcwd(char *buf, size_t size) {
     int syscall_num = SYSCALL_GETCWD;
     char* retvalue = NULL;
 
-    __asm__(
+    __asm__ volatile(
         "mov %1, %%eax\n\t"
         "mov %2, %%ecx\n\t"
         "mov %3, %%edx\n\t"

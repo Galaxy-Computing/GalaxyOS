@@ -5,7 +5,7 @@ int psWait(int pid) {
     int syscall_num = SYSCALL_WAIT;
     int retvalue;
 
-    __asm__(
+    __asm__ volatile(
         "mov %1, %%eax\n\t"
         "mov %2, %%ecx\n\t"
         "int $0x80\n\t"

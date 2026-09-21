@@ -174,6 +174,7 @@ int pload_load_process(int pid, int tid) {
         }
         psr->offset = pheader->p_vaddr;
         psr->size = pagecnt * 4096;
+        processes[pid]->pages_used += pagecnt;
         processes[pid]->psregions[processes[pid]->psregions_count] = psr;
         processes[pid]->psregions_count++;
     }

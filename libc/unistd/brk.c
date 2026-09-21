@@ -8,7 +8,7 @@ void* internal_brk(void *addr) {
     int syscall_num = SYSCALL_BRK;
     void *retvalue;
 
-    __asm__(
+    __asm__ volatile(
         "mov %1, %%eax\n\t"
         "mov %2, %%ecx\n\t"
         "int $0x80\n\t"

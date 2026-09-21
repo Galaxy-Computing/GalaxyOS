@@ -6,7 +6,7 @@ int close(int fd) {
     ssize_t retvalue = 0;
 
     while (!retvalue) {
-        __asm__(
+        __asm__ volatile(
             "mov %1, %%eax\n\t"
             "mov %2, %%ecx\n\t"
             "int $0x80\n\t"

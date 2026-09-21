@@ -5,7 +5,7 @@ char* psGetEVar(const char* name, char* buf, size_t size) {
     int syscall_num = SYSCALL_GETENV;
     char* retvalue;
 
-    __asm__(
+    __asm__ volatile(
         "mov %1, %%eax\n\t"
         "mov %2, %%ecx\n\t"
         "mov %3, %%edx\n\t"
@@ -17,7 +17,7 @@ char* psGetEVar(const char* name, char* buf, size_t size) {
           "m"  (name),
           "m"  (buf),
           "m"  (size)
-        : "%eax", "%ecx", "%edx", "%ebx"
+        : "%eax", "%ecx", "%edx", "%ebx", "memory"
     );
 
     return retvalue;
@@ -27,7 +27,7 @@ int psSetEVar(const char* name, const char* val, size_t size) {
     int syscall_num = SYSCALL_SETENV;
     int retvalue;
 
-    __asm__(
+    __asm__ volatile(
         "mov %1, %%eax\n\t"
         "mov %2, %%ecx\n\t"
         "mov %3, %%edx\n\t"

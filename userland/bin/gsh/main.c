@@ -7,6 +7,8 @@
 
 #define MAX_BUF 1024
 
+char cwd[MAX_BUF] = {0};
+
 char** parse_args(const char* cmdline, int* out_argc) {
     char* cmdline_copy = strdup(cmdline);
     if (!cmdline_copy) return NULL;
@@ -67,8 +69,6 @@ int main(void) {
         token = strtok(NULL, ";");
     }
 
-    char cwd[MAX_BUF] = {0};
-
     for (;;) {
         char buffer[MAX_BUF];
         char ch;
@@ -125,6 +125,8 @@ int main(void) {
         } else {
             if (!strcmp(cmdargv[0], "cd")) {
                 cd(cmdargc, cmdargv);
+            } else if (!strcmp(cmdargv[0], "exit")) {
+                return 0;
             } else {
                 for (int x = 0; x < pathentriescnt; x++) {
                     sprintf(fullpath, "%s/%s.elf", pathentries[x], cmdargv[0]);

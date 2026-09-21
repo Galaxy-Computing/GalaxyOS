@@ -6,7 +6,7 @@ ssize_t read(int fd, void *buf, size_t count) {
     ssize_t retvalue = 0;
 
     while (!retvalue) {
-        __asm__(
+        __asm__ volatile(
             "mov %1, %%eax\n\t"
             "mov %2, %%ecx\n\t"
             "mov %3, %%edx\n\t"

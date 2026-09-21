@@ -5,7 +5,7 @@ int fsList(const char* path, char* buf, size_t size, int dirs) {
     int syscall_num = SYSCALL_LIST;
     int retvalue;
 
-    __asm__(
+    __asm__ volatile(
         "mov %1, %%eax\n\t"
         "mov %2, %%ecx\n\t"
         "mov %3, %%edx\n\t"
@@ -19,7 +19,7 @@ int fsList(const char* path, char* buf, size_t size, int dirs) {
           "m"  (buf),
           "m"  (size),
           "m"  (dirs)
-        : "%eax", "%ecx", "%edx", "%ebx", "%esi"
+        : "%eax", "%ecx", "%edx", "%ebx", "%esi", "memory"
     );
 
     return retvalue;

@@ -5,7 +5,7 @@ ssize_t write(int fd, const void *buf, size_t count) {
     int syscall_num = SYSCALL_WRITE;
     ssize_t retvalue;
 
-    __asm__(
+    __asm__ volatile(
         "mov %1, %%eax\n\t"
         "mov %2, %%ecx\n\t"
         "mov %3, %%edx\n\t"

@@ -5,7 +5,7 @@ int sysVersionN(char* out, int size) {
     int syscall_num = SYSCALL_GETVER;
     int retvalue;
 
-    __asm__(
+    __asm__ volatile(
         "mov %1, %%eax\n\t"
         "mov %2, %%ecx\n\t"
         "mov %3, %%edx\n\t"

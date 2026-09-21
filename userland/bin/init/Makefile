@@ -21,6 +21,7 @@ CPPFLAGS:=$(CPPFLAGS)
 
 OBJS=\
 main.o \
+power.o \
 
 BINARIES=init.elf
 

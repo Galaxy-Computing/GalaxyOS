@@ -139,23 +139,21 @@ void *vmm_map_pages_loc(address_t *pages, int pagecount, address_t loc, unsigned
 }
 
 void vmm_map_stack(struct thread *thread) {
-    unsigned long *pd = (unsigned long *)processes[thread->pid]->cr3_virt;
+    void* newptaddr = liballoc_alloc(1); // get a page for the page table
+    memset(newptaddr, 0, PAGE_SIZE); // zero it out, we don't want any random data that was in there earlier being interpreted as page table data
+    thread->stackpt = newptaddr;
+}
 
-    // find the highest possible directory entry for the stack to be located in
-    int stackpdi = 767;
-    while (pd[stackpdi] & 0x1) {
-        stackpdi--;
-        if (stackpdi == -1) {
-            // h
-            break;
-        }
-    }
-    thread->stackpdi = stackpdi;
-    if (stackpdi > -1) {
-        void* newptaddr = liballoc_alloc(1); // get a page for the page table
-        memset(newptaddr, 0, PAGE_SIZE); // zero it out, we don't want any random data that was in there earlier being interpreted as page table data
-        pd[stackpdi] = (unsigned long)vmm_get_physaddr((address_t)newptaddr) | 0x7; // user, r/w (can be overriden), present
-    } 
+void vmm_switch_stack(struct thread* thread) {
+    unsigned long *pd = (unsigned long *)processes[thread->pid]->cr3_virt;
+    pd[thread->stackpdi] = (unsigned long)vmm_get_physaddr((address_t)thread->stackpt) | 0x7; // user, r/w (can be overriden), present
+
+    // reset the whole cache
+    __asm__ (
+        "mov %%cr3, %%eax\n\t"
+        "mov %%eax, %%cr3\n\t"
+        : : : "%eax"
+    );
 }
 
 int vmm_unmap_page(address_t virtualaddr) {

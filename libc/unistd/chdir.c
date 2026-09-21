@@ -5,7 +5,7 @@ int chdir(char* path) {
     int syscall_num = SYSCALL_CHDIR;
     int retvalue = 0;
 
-    __asm__(
+    __asm__ volatile(
         "mov %1, %%eax\n\t"
         "mov %2, %%ecx\n\t"
         "int $0x80\n\t"

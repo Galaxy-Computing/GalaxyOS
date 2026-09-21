@@ -20,6 +20,8 @@
 #include <kernel/sched.h>
 #include <kernel/kernel.h>
 #include <kernel/liballoc.h>
+#include <kernel/pmm.h>
+#include <kernel/interface.h>
 #include <sys/types.h>
 #include <errno.h>
 #include <string.h>
@@ -235,9 +237,40 @@ int syscall_getcwd(unsigned int args[]) {
     return (int)args[0];
 }
 
+int syscall_memusage(unsigned int args[]) {
+    ((struct regs*)args[6])->ecx = pmm_used() * 4096;
+    ((struct regs*)args[6])->edx = pmm_available() * 4096;
+    ((struct regs*)args[6])->ebx = (pmm_used() + pmm_available()) * 4096;
+    return (currentps->pages_used * 4096) + currentps->brk_offset;
+}
+
+int syscall_intfc(unsigned int args[]) {
+    return interface_create((char*)args[0], currentps->pid, (int)args[1]);
+}
+
+int syscall_intfd(unsigned int args[]) {
+    return interface_delete((char*)args[0], currentps->pid);
+}
+
+int syscall_intfs(unsigned int args[]) {
+    return interface_send((char*)args[0], currentps->pid, (int)args[1], (void*)args[2], (size_t)args[3]);
+}
+
+int syscall_intfr(unsigned int args[]) {
+    return interface_recv((char*)args[0], currentps->pid, (void*)args[1], (size_t)args[2], (size_t*)args[3]);
+}
+
+int syscall_intfw(unsigned int args[]) {
+    return interface_wait((char*)args[0], threads[currenttid]);
+}
+
+int syscall_tfork(unsigned int args[]) {
+    return sched_fork_thread(currenttid, (struct regs*)args[6]);
+}
+
 void syscall_handler(struct regs *r) {
     kmode = 0;
-    if (syscalltable[r->eax]) {
+    if ((r->eax < 26) && (r->eax != 0)) {
         unsigned int args[] = {r->ecx, r->edx, r->ebx, r->esi, r->edi, r->ebp, (unsigned int)r};
         r->eax = syscalltable[r->eax](args);
     } else {
@@ -267,5 +300,12 @@ void syscall_init(void) {
     syscalltable[16] = &syscall_chdir;
     syscalltable[17] = &syscall_list;
     syscalltable[18] = &syscall_getcwd;
+    syscalltable[19] = &syscall_memusage;
+    syscalltable[20] = &syscall_intfc;
+    syscalltable[21] = &syscall_intfd;
+    syscalltable[22] = &syscall_intfs;
+    syscalltable[23] = &syscall_intfr;
+    syscalltable[24] = &syscall_intfw;
+    syscalltable[25] = &syscall_tfork;
 }
 

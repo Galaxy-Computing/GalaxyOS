@@ -24,6 +24,7 @@
 #include <kernel/pload.h>
 #include <kernel/term.h>
 #include <kernel/irq.h>
+#include <kernel/interface.h>
 #include <sys/types.h>
 #include <stdint.h>
 #include <string.h>
@@ -87,6 +88,7 @@ int sched_create_thread(int ownerpid, uint8_t noqueue, uint32_t entrypoint) {
     threads[last_tid]->pid = ownerpid;
     threads[last_tid]->state = THREAD_STATE_STARTING;
     threads[last_tid]->cr3 = processes[ownerpid]->cr3;
+    threads[last_tid]->stackpdi = 767;
     
     // create the stack
     threads[last_tid]->esp_k = (uint32_t*)((uint32_t)kmalloc(THREAD_STACK_SIZE)+THREAD_STACK_SIZE); // this is for context switches and kernel level threads
@@ -114,7 +116,6 @@ int sched_create_thread(int ownerpid, uint8_t noqueue, uint32_t entrypoint) {
     } else {
         // userland thread
         vmm_map_stack(threads[last_tid]);
-        if (threads[last_tid]->stackpdi == -1) { return -1; }
 
         threads[last_tid]->esp_k = (uint32_t*)((uint32_t)(threads[last_tid]->esp_k) - 76);
         threads[last_tid]->esp_k[0] = 0x20 | 3; // gs
@@ -158,6 +159,38 @@ int sched_create_thread(int ownerpid, uint8_t noqueue, uint32_t entrypoint) {
     return last_tid++;
 }
 
+// should only be called for user mode threads
+int sched_fork_thread(int tid, struct regs* r) {
+    int retvalue = sched_create_thread(threads[tid]->pid, 0, r->eip);
+    if (retvalue == -1) return retvalue;
+
+    uint32_t relsp = r->useresp % 0x400000;
+    void* tempstackregion = kmalloc(0x400000 - relsp);
+    memcpy(tempstackregion, (void*)(r->useresp), 0x400000 - relsp); // copy the original thread's stack into the new one
+
+    vmm_switch_stack(threads[retvalue]);
+    int oldtid = currenttid;
+    currenttid = retvalue;
+    memcpy((void*)(r->useresp), tempstackregion, 0x400000 - relsp);
+    currenttid = oldtid;
+    vmm_switch_stack(threads[oldtid]);
+
+    kfree(tempstackregion);
+
+    threads[retvalue]->esp_k[4] = r->edi;
+    threads[retvalue]->esp_k[5] = r->esi;
+    threads[retvalue]->esp_k[6] = r->ebp;
+    threads[retvalue]->esp_k[8] = r->ebx;
+    threads[retvalue]->esp_k[9] = r->edx;
+    threads[retvalue]->esp_k[10] = r->ecx;
+    threads[retvalue]->esp_k[11] = 0; // set eax to 0 in the new thread's stack
+
+    threads[retvalue]->esp_k[16] = r->eflags;
+    threads[retvalue]->esp_k[17] = r->useresp;
+
+    return retvalue;
+}
+
 int sched_create_process(uint8_t privilege, const char* name) {
     if (kmode) { asm("cli"); }
     if (last_pid >= MAX_PROCESSES) {
@@ -186,6 +219,8 @@ int sched_create_process(uint8_t privilege, const char* name) {
 
     processes[last_pid]->psregions = kmalloc(sizeof(struct ps_region*) * 64);
     processes[last_pid]->psregions_count = 0;
+
+    processes[last_pid]->pages_used = 0;
 
     processes[last_pid]->openfiles = (struct vfs_file_open**)kmalloc(sizeof(struct vfs_file_open*) * 32);
     processes[last_pid]->openfiles_size = 32;
@@ -419,9 +454,16 @@ void sched_pick_next(void) {
                 }
             }
         }
+        if (threads[nexttid] == NULL) {
+            panic("Tried to schedule null thread");
+        }
         switch (threads[nexttid]->state) {
             case THREAD_STATE_RUNNING:
                 // this is the next thread we will run
+                if (threads[nexttid]->privilege_level) {
+                    // need to switch out the stack
+                    vmm_switch_stack(threads[nexttid]);
+                }
                 currentps = processes[threads[nexttid]->pid];
                 currenttid = nexttid;
                 break;
@@ -429,6 +471,14 @@ void sched_pick_next(void) {
                 // skip it
                 break;
             case THREAD_STATE_WAITING:
+                if (threads[nexttid]->wait_msg != NULL) {
+                    // we're waiting for a message queue
+                    if (interface_has_msg(threads[nexttid]->wait_msg, threads[nexttid]->pid)) {
+                        threads[nexttid]->state = THREAD_STATE_RUNNING;
+                        break;
+                    }
+                    break;
+                }
                 // check for the process the thread is waiting for
                 int pid = sched_check_waiting_thread(nexttid);
                 if (pid != -1) {
@@ -497,10 +547,12 @@ void sched_pick_next(void) {
             case THREAD_STATE_DEAD:
                 // take it out of the queue
                 for (int i = queue_loc-1; i < queue_end-1; i++) {
-                    queue[i] = i+1;
+                    queue[i] = queue[i+1];
                 }
                 queue_end--;
                 queue_loc--;
+
+                // TODO: free all pages allocated for the thread's user stack
 
                 // free the thread
                 kfree(threads[nexttid]->esp_k);

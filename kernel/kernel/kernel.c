@@ -36,6 +36,7 @@
 #include <kernel/dbgsh.h>
 #include <kernel/atapi.h>
 #include <kernel/syscall.h>
+#include <kernel/interface.h>
 #include <string.h>
 
 int kmode = 0;
@@ -55,7 +56,8 @@ void kernel_loop(void) {
     asm("int $0x30"); // yield because the above function doesn't do that
 
     // If it ever does die, panic
-    panic("Init process died");
+    // init will exit itself if a critical system process ever dies, so that's what we use as the panic message
+    panic("System process died");
 }
 
 // detect system volume and mount it
@@ -87,6 +89,7 @@ void kernel_mount_system_volume(char* info) {
             uint32_t bdid = rdisk_create(round_up_integer(size, 512) / 512, "rdisk");
             struct vfs_block_device *bd = vfs_get_block_device(bdid);
             memcpy(bd->extraa, buf, size);
+            kfree(buf);
             struct vfs_fs_driver* rdfsdriver = vfs_detect_fs(bd);
             if (rdfsdriver == NULL) {
                 panic("Error mounting system volume: Filesystem not supported");
@@ -149,10 +152,11 @@ uint32_t kernel_main(multiboot_info_t* mbd, unsigned int magic, unsigned int pag
     log_ok("FPU initialized");
     
     devinit();
+    interface_init();
 
     // mount the system volume
     kernel_mount_system_volume(cmdline);
-    
+
     sched_init();
     sched_create_thread(sched_create_process(0, "glxykrnl.elf"), 0, (uint32_t)&kernel_loop);
     // this is sort of a nasty hack

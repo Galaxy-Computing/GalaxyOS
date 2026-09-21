@@ -2,7 +2,7 @@
 <p align="center">An OS made in C for x86</p>
 <div align="center">
     <img alt="GitHub License" src="https://img.shields.io/github/license/Galaxy-Computing/GalaxyOS">
-    <img alt="Static Badge" src="https://img.shields.io/badge/version-neptune_0.1.0-blue">
+    <img alt="Static Badge" src="https://img.shields.io/badge/version-neptune_0.1-blue">
     <br>
     <a href="https://discord.gg/D483Rhz82G">
         <img src="https://discord.com/api/guilds/1455046419353178226/widget.png?style=banner2" alt="Discord Banner 2"/>
