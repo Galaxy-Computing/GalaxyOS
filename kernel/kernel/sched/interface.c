@@ -18,6 +18,8 @@
 #include <errno.h>
 #include <kernel/sched.h>
 #include <kernel/liballoc.h>
+#include <kernel/kernel.h>
+#include <kernel/safecpy.h>
 #include <string.h>
 
 struct interface **intfaces;
@@ -25,17 +27,19 @@ uint32_t intfaces_count;
 uint32_t intfaces_size;
 
 int interface_find(const char* name) {
+    if (safelen(name, 1) == -1) return -EFAULT; // check if string is valid
     for (int i = 0; i < intfaces_count; i++) {
         if (!strcmp(name, intfaces[i]->name)) {
             return i;
         }
     }
-    return -1;
+    return -ENOENT;
 }
 
 int interface_create(const char* name, int pid, int flags) {
     int qid = interface_find(name);
-    if (qid != -1) return -EEXIST;
+    if (qid == -EFAULT) return -EFAULT;
+    if (qid != -ENOENT) return -EEXIST;
     
     struct interface *newqueue = kmalloc(sizeof(struct interface));
 
@@ -58,7 +62,7 @@ int interface_create(const char* name, int pid, int flags) {
 
 int interface_delete(const char* name, int pid) {
     int qid = interface_find(name);
-    if (qid == -1) return -ENOENT;
+    if (qid < 0) return qid;
     if (intfaces[qid]->creator_pid != pid) return -EACCES;
 
     for (int i = 0; i < intfaces[qid]->messages_count; i++) {
@@ -78,7 +82,7 @@ int interface_delete(const char* name, int pid) {
 
 int interface_send(const char* name, int senderpid, int recvpid, void* buf, size_t size) {
     int qid = interface_find(name);
-    if (qid == -1) return -ENOENT;
+    if (qid < 0) return qid;
 
     // only allow the creator to send messages to any pid, and only allow any pid to send a message to the creator
     if (intfaces[qid]->flags & INTERFACE_FLAG_PRIVATE) {
@@ -97,7 +101,7 @@ int interface_send(const char* name, int senderpid, int recvpid, void* buf, size
     newmsg->pid = recvpid;
     newmsg->sender = senderpid;
     newmsg->buf = kmalloc(size);
-    memcpy(newmsg->buf, buf, size);
+    if (safecpy(newmsg->buf, buf, size, 1)) return -EFAULT;
     newmsg->size = size;
 
     intfaces[qid]->messages[intfaces[qid]->messages_count] = newmsg;
@@ -108,7 +112,7 @@ int interface_send(const char* name, int senderpid, int recvpid, void* buf, size
 
 int interface_recv(const char* name, int recvpid, void* buf, size_t size, size_t* size_out) {
     int qid = interface_find(name);
-    if (qid == -1) return -ENOENT;
+    if (qid < 0) return qid;
 
     int mid = -1;
     for (int i = 0; i < intfaces[qid]->messages_count; i++) {
@@ -130,7 +134,7 @@ int interface_recv(const char* name, int recvpid, void* buf, size_t size, size_t
     size_t truesize = intfaces[qid]->messages[mid]->size;
     if (size < truesize) truesize = size;
 
-    memcpy(buf, intfaces[qid]->messages[mid]->buf, truesize);
+    if (safecpy(buf, intfaces[qid]->messages[mid]->buf, truesize, 0) == -1) return -EFAULT;
 
     int senderpid = intfaces[qid]->messages[mid]->sender;
     kfree(intfaces[qid]->messages[mid]->buf);
@@ -141,7 +145,7 @@ int interface_recv(const char* name, int recvpid, void* buf, size_t size, size_t
     }
     intfaces[qid]->messages_count--;
 
-    *size_out = truesize;
+    if (safecpy(size_out, &truesize, sizeof(size_t), 0) == -1) return -EFAULT;
     return senderpid;
 }
 
@@ -165,7 +169,7 @@ int interface_has_msg(struct interface* interface, int recvpid) {
 
 int interface_wait(const char* name, struct thread* thread) {
     int qid = interface_find(name);
-    if (qid == -1) return -ENOENT;
+    if (qid < 0) return qid;
 
     thread->state = THREAD_STATE_WAITING;
     thread->wait_msg = intfaces[qid];

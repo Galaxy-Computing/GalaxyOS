@@ -1,6 +1,7 @@
 #include <unistd.h>
 #include <kernel/syscall.h>
 #include <stddef.h>
+#include <errno.h>
 
 char* getcwd(char *buf, size_t size) {
     int syscall_num = SYSCALL_GETCWD;
@@ -18,7 +19,6 @@ char* getcwd(char *buf, size_t size) {
           "m"  (size)
         : "%eax", "%ecx", "%edx"
     );
-
-
+    
     return retvalue;
 }

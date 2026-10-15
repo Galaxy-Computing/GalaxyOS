@@ -12,6 +12,9 @@ dd if=/dev/zero of=isodir/boot.img bs=1M count=32
 cp -r sysroot/* imgdir/
 cp -r files/${HOSTARCH}/* imgdir/
 
+# we don't need includes in the system files once the OS is actually built
+rm -r imgdir/galaxyos/include 
+
 mkfs.fat isodir/boot.img
 mcopy -i isodir/boot.img -s imgdir/* ::
 

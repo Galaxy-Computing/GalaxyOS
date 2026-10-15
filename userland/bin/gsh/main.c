@@ -55,8 +55,8 @@ void cd(int argc, char** argv) {
 int main(void) {
     char *pathevar = malloc(MAX_BUF);
     char *pathentries[256];
-    char *pathevarret = psGetEVar("PATH", pathevar, MAX_BUF);
-    if (pathevarret == NULL) {
+    int pathevarret = psGetEVar("PATH", pathevar, MAX_BUF);
+    if (pathevarret < 0) {
         printf("gsh: no PATH was set, using empty string as default");
         pathevar[0] = '\0';
     }
@@ -102,7 +102,7 @@ int main(void) {
         buffer[i] = '\0'; // Null-terminate string
         if (buffer[0] == '\0') { continue; }
 
-        int pid = -1;
+        int pid = -99;
         char **cmdargv;
         int cmdargc = 0;
 

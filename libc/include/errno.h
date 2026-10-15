@@ -9,5 +9,6 @@ extern int errno;
 #define EACCES 4
 #define EEXIST 5
 #define EAGAIN 6
+#define EFAULT 7
 
 #endif

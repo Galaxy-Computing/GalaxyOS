@@ -330,6 +330,14 @@ isr_13:
 
 isr_14:
     cli
+    push %eax
+    mov $safecpy_inst, %eax
+    cmp 8(%esp), %eax
+    je safecpy_fail_isr
+    mov $safecpy_instb, %eax
+    cmp 8(%esp), %eax
+    je safecpy_fail_isr
+    pop %eax
     push $14
     jmp isr_common_stub
 
@@ -577,4 +585,35 @@ irq_common_stub:
     pop %ds
     popa
     add $8, %esp
+    iret
+
+.global safecpy_asm
+safecpy_asm:
+    push %ebp
+    mov %esp, %ebp
+    push %ebx
+    push %ecx
+    mov 8(%ebp), %eax
+    mov 12(%ebp), %ebx
+safecpy_inst:
+    movb (%eax), %cl
+safecpy_instb:
+    movb %cl, (%ebx)
+    pop %ecx
+    pop %ebx
+    pop %ebp
+    mov $0, %eax
+    ret
+
+safecpy_fail:
+    pop %ecx
+    pop %ebx
+    pop %ebp
+    mov $0xffffffff, %eax # -1
+    ret
+
+safecpy_fail_isr:
+    add $4, %esp
+    pop %eax
+    movl $safecpy_fail, (%esp)
     iret

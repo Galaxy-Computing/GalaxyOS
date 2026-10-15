@@ -45,7 +45,7 @@ int main(int argc, char* argv[]) {
     pathvar[sizepath] = '\0';
 
     printf("init: setting path variable\n");
-    psSetEVar("PATH", pathvar, sizepath);
+    psSetEVar("PATH", pathvar);
 
     printf("init: starting confsrv\n");
     psExecA("local:galaxyos/i386/confsrv.elf", (char *[]){"confsrv.elf", NULL});

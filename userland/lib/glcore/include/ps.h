@@ -11,8 +11,8 @@
 int psExecA(const char* path, char* args[]);
 
 int psWait(int pid); // wait for a process to exit, returns exit code
-char* psGetEVar(const char* name, char* buf, size_t size);
-int psSetEVar(const char* name, const char* val, size_t size);
+int psGetEVar(const char* name, char* buf, size_t size);
+int psSetEVar(const char* name, const char* val);
 
 int psThreadFork(void); // fork for threads, will return 0 in the spawned thread, but the thread id in the spawning thread
 
