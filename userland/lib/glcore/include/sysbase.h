@@ -6,6 +6,12 @@
 int sysVersion(char* out); // returns full version string
 int sysVersionN(char* out, int size); // returns full version string with size limit
 
+#define sysPS_RUNNING 0
+#define sysPS_SHUTDOWN 1
+#define sysPS_REBOOT 2
+
+int sysSetPowerState(int state); // 0 = running, 1 = shutdown, 2 = reboot
+
 // TODO: implement
 // these are here to define what will be implemented later
 int sysVersionBuild(void); // returns build number

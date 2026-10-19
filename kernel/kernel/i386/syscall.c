@@ -23,6 +23,7 @@
 #include <kernel/pmm.h>
 #include <kernel/interface.h>
 #include <kernel/safecpy.h>
+#include <kernel/power.h>
 #include <sys/types.h>
 #include <errno.h>
 #include <string.h>
@@ -308,9 +309,24 @@ int syscall_tfork(unsigned int args[]) {
     return sched_fork_thread(currenttid, (struct regs*)args[6]);
 }
 
+int syscall_spstate(unsigned int args[]) {
+    switch ((int)args[0]) {
+        case 0:
+            return 0; // if we're here we're already running, so do nothing
+        case 1:
+            return -EINVAL; // TODO: implement shutdown
+        case 2:
+            // if we are here, init should have cleaned up everything in userspace
+            reboot();
+            return 0;
+        default:
+            return -EINVAL; // we don't recognize this state
+    }
+}
+
 void syscall_handler(struct regs *r) {
     kmode = 0;
-    if ((r->eax < 26) && (r->eax != 0)) {
+    if ((r->eax < 27) && (r->eax != 0)) { // change that number when adding a new syscall
         unsigned int args[] = {r->ecx, r->edx, r->ebx, r->esi, r->edi, r->ebp, (unsigned int)r};
         r->eax = syscalltable[r->eax](args);
     } else {
@@ -347,5 +363,6 @@ void syscall_init(void) {
     syscalltable[23] = &syscall_intfr;
     syscalltable[24] = &syscall_intfw;
     syscalltable[25] = &syscall_tfork;
+    syscalltable[26] = &syscall_spstate;
 }
 

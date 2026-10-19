@@ -26,6 +26,7 @@
 #define SYSCALL_INTFR    23
 #define SYSCALL_INTFW    24
 #define SYSCALL_TFORK    25
+#define SYSCALL_SPSTATE  26
 
 void syscall_init(void);
 

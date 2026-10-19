@@ -27,6 +27,7 @@ ps/intface.o \
 ps/thread.o \
 fs/size.o \
 fs/list.o \
+sysbase/power.o \
 sysbase/version.o \
 sysbase/memusage.o \
 

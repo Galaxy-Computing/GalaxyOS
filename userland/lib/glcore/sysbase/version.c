@@ -22,5 +22,5 @@ int sysVersionN(char* out, int size) {
 }
 
 int sysVersion(char* out) {
-    sysVersionN(out, 10000); // just call it with an extremely large number so it won't hit the size limit ever
+    return sysVersionN(out, 10000); // just call it with an extremely large number so it won't hit the size limit ever
 }
