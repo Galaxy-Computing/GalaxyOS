@@ -30,3 +30,21 @@ __attribute__((__noreturn__))
 void psExit(int code) {
     exit(code);
 }
+
+int psKill(int pid) {
+    int syscall_num = SYSCALL_KILL;
+    int retvalue;
+
+    __asm__ volatile(
+        "mov %1, %%eax\n\t"
+        "mov %2, %%ecx\n\t"
+        "int $0x80\n\t"
+        "mov %%eax, %0\n\t"
+        : "=m" (retvalue)
+        : "m"  (syscall_num),
+          "m"  (pid)
+        : "%eax", "%ecx"
+    );
+
+    return retvalue;
+}

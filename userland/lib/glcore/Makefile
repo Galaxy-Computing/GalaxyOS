@@ -25,6 +25,7 @@ ps/wait.o \
 ps/env.o \
 ps/intface.o \
 ps/thread.o \
+ps/info.o \
 fs/size.o \
 fs/list.o \
 sysbase/power.o \

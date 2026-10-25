@@ -46,6 +46,7 @@
 struct process **processes;
 int processes_size;
 int last_pid;
+int processes_count;
 
 struct thread **threads;
 int last_tid;
@@ -248,6 +249,8 @@ int sched_create_process(uint8_t privilege, const char* name) {
     // change the last page directory entry to map to itself
     processes[last_pid]->cr3_virt[1023] = ((uint32_t)processes[last_pid]->cr3 | 0x3);
     
+    processes_count++;
+
     if (kmode) { asm("sti"); }
     return last_pid++;
 }
@@ -362,6 +365,18 @@ int sched_exit_process(int exitcode) {
     currentps->state = 1;
     for (int i = 0; i < currentps->threadcount; i++) {
         threads[currentps->tids[i]]->state = THREAD_STATE_EXITING;
+    }
+    return 0;
+}
+
+int sched_kill_process(int pid) {
+    if (pid < 0) { return -EINVAL; } // pid is negative
+    if (processes[pid] == NULL) { return -ESRCH; } // process doesn't exist
+    if (processes[pid]->privilege_level < currentps->privilege_level) { return -EACCES; } // killing process of higher ring level than it
+    processes[pid]->exitcode = currentps->pid + 255;
+    processes[pid]->state = 1;
+    for (int i = 0; i < processes[pid]->threadcount; i++) {
+        threads[processes[pid]->tids[i]]->state = THREAD_STATE_EXITING;
     }
     return 0;
 }
@@ -496,6 +511,7 @@ void sched_pick_next(void) {
                         }
                         kfree(processes[threads[nexttid]->pid]);
                         processes[threads[nexttid]->pid] = NULL; // set it to a null pointer just so we know this isn't valid
+                        processes_count--;
                     }
                 }
                 break;
@@ -540,6 +556,7 @@ void sched_pick_next(void) {
                         }
                         kfree(processes[threads[nexttid]->pid]);
                         processes[threads[nexttid]->pid] = NULL; // set it to a null pointer just so we know this isn't valid
+                        processes_count--;
                     }
                 }
                 threads[nexttid]->state = THREAD_STATE_DEAD;
@@ -600,6 +617,7 @@ void sched_user_fault(int eno, uint32_t errorcode) {
 void sched_init(void) {
     // set up dynamic arrays
     processes = (struct process**)kmalloc(sizeof(struct process) * DEFAULT_PROCESS_LIST_SIZE);
+    processes_count = 0;
     threads = (struct thread**)kmalloc(sizeof(struct thread) * DEFAULT_THREAD_LIST_SIZE);
     queue = (int*)kmalloc(sizeof(int) * DEFAULT_THREAD_LIST_SIZE);
     queue_start = 0;

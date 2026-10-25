@@ -27,6 +27,9 @@
 #define SYSCALL_INTFW    24
 #define SYSCALL_TFORK    25
 #define SYSCALL_SPSTATE  26
+#define SYSCALL_KILL     27
+#define SYSCALL_PSCOUNT  28
+#define SYSCALL_PSLIST   29
 
 void syscall_init(void);
 

@@ -91,13 +91,21 @@ int interface_send(const char* name, int senderpid, int recvpid, void* buf, size
         }
     }
 
+    if (recvpid == 0) {
+        if (processes[intfaces[qid]->creator_pid] == NULL) {
+            // tell the sender that the process it's trying to talk to is dead
+            // this would usually mean that a system process has been killed, but it's userspace's responsibility to handle that, not ours (except for init)
+            return -EOWNERDEAD; 
+        }
+    }
+
     if (intfaces[qid]->messages_count >= intfaces[qid]->messages_size) {
         intfaces[qid]->messages = krealloc(intfaces[qid]->messages, sizeof(struct interface_message*) * (intfaces[qid]->messages_size + 32));
         intfaces[qid]->messages_size += 32;
     }
 
     struct interface_message *newmsg = kmalloc(sizeof(struct interface_message));
-
+    
     newmsg->pid = recvpid;
     newmsg->sender = senderpid;
     newmsg->buf = kmalloc(size);

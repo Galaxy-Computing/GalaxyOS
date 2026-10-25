@@ -324,9 +324,31 @@ int syscall_spstate(unsigned int args[]) {
     }
 }
 
+int syscall_kill(unsigned int args[]) {
+    return sched_kill_process((int)args[0]);
+}
+
+int syscall_pscount(unsigned int args[]) {
+    return processes_count;
+}
+
+int syscall_pslist(unsigned int args[]) {
+    size_t count = 0;
+    for (int i = 0; i < last_pid; i++) {
+        if (!((count + 1) < (size_t)args[1])) {
+            return (int)count;
+        }
+        if (processes[i] != NULL) {
+            if (safecpy(&(((int*)args[0])[count]), &i, sizeof(int), 0)) return -EFAULT;
+            count++;
+        }
+    }
+    return (int)count;
+}
+
 void syscall_handler(struct regs *r) {
     kmode = 0;
-    if ((r->eax < 27) && (r->eax != 0)) { // change that number when adding a new syscall
+    if ((r->eax < 30) && (r->eax != 0)) { // change that number when adding a new syscall
         unsigned int args[] = {r->ecx, r->edx, r->ebx, r->esi, r->edi, r->ebp, (unsigned int)r};
         r->eax = syscalltable[r->eax](args);
     } else {
@@ -364,5 +386,8 @@ void syscall_init(void) {
     syscalltable[24] = &syscall_intfw;
     syscalltable[25] = &syscall_tfork;
     syscalltable[26] = &syscall_spstate;
+    syscalltable[27] = &syscall_kill;
+    syscalltable[28] = &syscall_pscount;
+    syscalltable[29] = &syscall_pslist;
 }
 

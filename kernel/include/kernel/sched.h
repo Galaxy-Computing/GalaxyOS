@@ -100,6 +100,7 @@ void sched_suspend_thread(uint8_t irq, int tid);
 void sched_suspend_current_thread(uint8_t irq);
 int sched_wait_process(int pid);
 int sched_exit_process(int exitcode);
+int sched_kill_process(int pid);
 uintptr_t sched_setbrk(void* addr);
 void sched_user_fault(int eno, uint32_t errorcode);
 
@@ -107,6 +108,7 @@ extern int currenttid;
 extern struct process *currentps;
 
 extern struct process **processes;
+extern int processes_count;
 extern int processes_size;
 extern int last_pid;
 

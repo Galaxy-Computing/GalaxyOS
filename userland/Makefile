@@ -19,6 +19,9 @@ clean: $(SUBDIRS_CLEAN)
 $(SUBDIRS): %:
 		$(MAKE) -C $@
 
+bin: lib
+bin-install: lib-install
+
 $(SUBDIRS_INSTALL): %:
 		$(MAKE) install -C $(patsubst %-install,%,$@)
 

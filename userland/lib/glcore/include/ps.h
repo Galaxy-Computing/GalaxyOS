@@ -26,12 +26,14 @@ int psInterfaceRecieve(const char* name, void* buf, size_t size, size_t* sizeout
 int psInterfaceRecieveNB(const char* name, void* buf, size_t size, size_t* sizeout); // will not block, instead will return an error if there are no messages
 int psInterfaceWait(const char* name); // will block until a message that this process can recieve is in the queue
 
+int psCount(void);
+int psList(int* list, size_t size);
+int psKill(int pid);
+
 // TODO: implement
 // these are here to define what will be implemented later
 int psExecS(const char* path, const char* args);
 int psName(int pid, char* out);
 int psNameN(int pid, char* out, int size);
-
-int psKill(int pid);
 
 #endif

@@ -7,6 +7,22 @@
 
 char buf[256];
 
+int reboot(void) {
+    printf("init: rebooting now\n");
+    int processes = psCount();
+    int list[processes];
+    psList(list, processes);
+
+    for (int i = 0; i < processes; i++) {
+        if (list[i] > 2) {
+            printf("killed %i\n", list[i]);
+            psKill(list[i]);
+        }
+    }
+
+    return sysSetPowerState(sysPS_REBOOT);
+}
+
 void powerthread(void) {
     psInterfaceCreate("sys:power", 1);
     for (;;) {
@@ -17,11 +33,11 @@ void powerthread(void) {
         if (!strncmp(buf, "shutdown", 256)) {
             ret = -ENOSYS;
         } else if (!strncmp(buf, "reboot", 256)) {
-            printf("init: rebooting now\n");
-            ret = sysSetPowerState(sysPS_REBOOT);
+            ret = reboot();
         } else {
             ret = -ENOSYS;
         }
         psInterfaceSend("sys:power", sender, &ret, 1);
     }
 }
+

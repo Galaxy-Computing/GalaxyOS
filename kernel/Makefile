@@ -14,7 +14,11 @@ BOOTDIR?=$(EXEC_PREFIX)/boot
 INCLUDEDIR?=$(PREFIX)/include
 LIBDIR?=$(EXEC_PREFIX)/${HOSTARCH}
 
-CFLAGS:=$(CFLAGS) -ffreestanding -Wall -Wextra
+GIT_HASH=$(git rev-parse HEAD)
+COMPILE_TIME=$(date -u +'%Y-%m-%d %H:%M:%S UTC')
+GIT_BRANCH=$(shell git branch --show-current)
+
+CFLAGS:=$(CFLAGS) -ffreestanding -Wall -Wextra -DGIT_BRANCH="\"$(GIT_BRANCH)\""
 CPPFLAGS:=$(CPPFLAGS) -D__is_kernel -Iinclude
 LDFLAGS:=$(LDFLAGS)
 LIBS:=$(LIBS) -nostdlib -lk -lgcc
