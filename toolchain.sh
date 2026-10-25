@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 set -e
 
 if command -v i686-galaxyos-gcc >/dev/null 2>&1; then

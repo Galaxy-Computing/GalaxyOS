@@ -1,3 +1,4 @@
+#!/bin/bash
 if [[ ! -v PROJECTS ]]; then
   SYSTEM_HEADER_PROJECTS="libc kernel userland"
   PROJECTS="libc kernel userland"
