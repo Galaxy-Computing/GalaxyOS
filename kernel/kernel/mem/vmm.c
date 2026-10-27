@@ -58,7 +58,6 @@ int vmm_map_page(address_t physaddr, address_t virtualaddr, unsigned int flags, 
 
     unsigned long *pd = (unsigned long *)PAGE_DIRECTORY_ADDR;
     unsigned long *pt = ((unsigned long *)PAGE_TABLE_ADDR) + (0x400 * pdindex);
-    unsigned long ptphys;
 
 	if ((pd[pdindex] & 1) == 0) {
 		// this isn't present, create a new one
@@ -68,10 +67,6 @@ int vmm_map_page(address_t physaddr, address_t virtualaddr, unsigned int flags, 
         pd[pdindex] = (unsigned long)vmm_get_physaddr((address_t)newptaddr) | 0x7; // user, r/w (can be overriden), present
         __invlpg((unsigned long)pd);
 	}
-
-    // the kernel page tables are in a specific part of memory
-    if (virtualaddr >= 0xC0000000) { ptphys = page_table_physaddr + (PAGE_SIZE * pdindex); } 
-    else { ptphys = pd[pdindex] & 0xFFFFF000; }
 
     if ((pt[ptindex] & 1) == 1) {
 		// this is present

@@ -45,6 +45,7 @@ string/strncpy.o \
 string/strcat.o \
 string/strncat.o \
 string/strchr.o \
+string/strrchr.o \
 string/strcpy.o \
 string/strdup.o \
 string/strtok.o \

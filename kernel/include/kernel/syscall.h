@@ -30,6 +30,7 @@
 #define SYSCALL_KILL     27
 #define SYSCALL_PSCOUNT  28
 #define SYSCALL_PSLIST   29
+#define SYSCALL_TEXIT    30
 
 void syscall_init(void);
 

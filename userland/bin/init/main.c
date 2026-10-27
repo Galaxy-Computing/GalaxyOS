@@ -12,6 +12,8 @@
 #define CONFIG_PATH "local:galaxyos/config/path"
 #define DEFAULT_PWD "local:"
 
+int teardown = 0;
+
 int main(int argc, char* argv[]) {
     if (argc != 1) {
         printf("init must be ran by the kernel\n");
@@ -58,7 +60,7 @@ int main(int argc, char* argv[]) {
 
         // should never be down here
         printf("init: power management thread returned!!\n");
-        for (;;) {}
+        psExitThread();
     }
 
     printf("init: starting shell binary\n");
@@ -67,6 +69,10 @@ int main(int argc, char* argv[]) {
         int shellpid = psExecA(shpath, (char *[]){shpath, NULL});
         if (shellpid == -1) printf("psExecA() failed\n");
         psWait(shellpid);
+        if (teardown == 1) {
+            psExitThread();
+            for (;;) {} // fallback if we're somehow down here
+        }
         printf("init: shell died, starting it again\n");
     }
 }

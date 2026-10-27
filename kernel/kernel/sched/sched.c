@@ -58,7 +58,7 @@ int queue_loc;
 int queue_end;
 
 int currenttid;
-struct process *currentps;
+struct process *currentps = NULL;
 
 int idletid;
 
@@ -233,6 +233,7 @@ int sched_create_process(uint8_t privilege, const char* name) {
     processes[last_pid]->pgbrk = 0;
 
     processes[last_pid]->procerr = 0;
+    processes[last_pid]->procerr_unhandled = 0;
     processes[last_pid]->procerrhandler = NULL;
     processes[last_pid]->state = 2;
     processes[last_pid]->waiting_threads = 0;
@@ -334,11 +335,12 @@ uintptr_t sched_setbrk(void* addr) {
 void sched_free_all(struct process *ps) {
     uintptr_t oldcr3;
     uintptr_t cr3 = (uintptr_t)ps->cr3;
-    __asm__ (
+    __asm__ volatile (
         "mov %%cr3, %0\n\t"
         "mov %1, %%cr3\n\t"
-        : "=r" (oldcr3)
+        : "=&r" (oldcr3)
         : "r" (cr3)
+        : "memory"
     );
     sched_setbrk_true((void*)(ps->pgbrk-ps->brk_offset), ps);
     for (uint32_t i = 0; i < ps->psregions_count; i++) {
@@ -354,19 +356,22 @@ void sched_free_all(struct process *ps) {
         kfree(ps->psregions[i]);
     }
     kfree(ps->psregions);
-    __asm__ (
+    __asm__ volatile (
         "mov %0, %%cr3\n\t"
         : : "r" (oldcr3)
+        : "memory"
     );
 }
 
 int sched_exit_process(int exitcode) {
     currentps->exitcode = exitcode;
     currentps->state = 1;
-    for (int i = 0; i < currentps->threadcount; i++) {
-        threads[currentps->tids[i]]->state = THREAD_STATE_EXITING;
-    }
+    sched_reap_process(currentps->pid);
     return 0;
+}
+
+void sched_exit_thread(void) {
+    threads[currenttid]->state = THREAD_STATE_EXITING;
 }
 
 int sched_kill_process(int pid) {
@@ -374,10 +379,8 @@ int sched_kill_process(int pid) {
     if (processes[pid] == NULL) { return -ESRCH; } // process doesn't exist
     if (processes[pid]->privilege_level < currentps->privilege_level) { return -EACCES; } // killing process of higher ring level than it
     processes[pid]->exitcode = currentps->pid + 255;
-    processes[pid]->state = 1;
-    for (int i = 0; i < processes[pid]->threadcount; i++) {
-        threads[processes[pid]->tids[i]]->state = THREAD_STATE_EXITING;
-    }
+    processes[pid]->state = PROCESS_STATE_EXITING;
+    sched_reap_process(pid);
     return 0;
 }
 
@@ -449,6 +452,37 @@ int sched_check_waiting_thread(int tid) {
     return -1;
 }
 
+void sched_reap_process(int pid) {
+    // if there are any threads still active, kill them all
+    if (processes[pid]->threadcount) {
+        for (int i = 0; i < processes[pid]->threadcount; i++) {
+            threads[processes[pid]->tids[i]]->state = THREAD_STATE_DEAD; // if a thread is marked dead, it will be freed later
+        }
+        processes[pid]->tids_size = 0;
+        processes[pid]->threadcount = 0;
+    }
+    
+    // check if there are still any waiting threads
+    if (!(processes[pid]->waiting_threads)) {
+        // if there aren't any, we can safely free the entire process
+        kfree(processes[pid]->tids); 
+        liballoc_free(processes[pid]->cr3_virt, 1);
+
+        kfree(processes[pid]->name);
+        if (processes[pid]->argv != NULL) {
+            kfree(processes[pid]->argv);
+        }
+
+        sched_free_all(processes[pid]); // free all memory used by the process in userspace
+
+        kfree(processes[pid]);
+        processes[pid] = NULL; // set it to a null pointer just so we know this isn't valid
+        processes_count--;
+    }
+}
+
+
+
 void sched_pick_next(void) {
     currenttid = -1;
     int loop = 0;
@@ -471,6 +505,14 @@ void sched_pick_next(void) {
         }
         if (threads[nexttid] == NULL) {
             panic("Tried to schedule null thread");
+        }
+        if ((processes[threads[nexttid]->pid] == NULL) && (threads[nexttid]->state != THREAD_STATE_DEAD)) {
+            panic("Tried to schedule null process");
+        }
+        if ((processes[threads[nexttid]->pid] != NULL)) {
+            if ((processes[threads[nexttid]->pid]->state == PROCESS_STATE_EXITING) && (threads[nexttid]->state != THREAD_STATE_DEAD)) {
+                panic("Tried to schedule exiting process");
+            }
         }
         switch (threads[nexttid]->state) {
             case THREAD_STATE_RUNNING:
@@ -498,21 +540,15 @@ void sched_pick_next(void) {
                 int pid = sched_check_waiting_thread(nexttid);
                 if (pid != -1) {
                     // that process has exited, so the thread is resumed
+                    if (threads[nexttid]->privilege_level) {
+                        // need to switch out the stack
+                        vmm_switch_stack(threads[nexttid]);
+                    }
                     currentps = processes[threads[nexttid]->pid];
                     currenttid = nexttid;
                     threads[nexttid]->esp_k[11] = processes[pid]->exitcode; // set eax to the exitcode of the process
 
-                    // check if there are still any waiting threads
-                    if (!processes[threads[nexttid]->pid]->waiting_threads) {
-                        // if there aren't any, we can safely free the entire process
-                        kfree(processes[threads[nexttid]->pid]->name);
-                        if (processes[threads[nexttid]->pid]->argv != NULL) {
-                            kfree(processes[threads[nexttid]->pid]->argv);
-                        }
-                        kfree(processes[threads[nexttid]->pid]);
-                        processes[threads[nexttid]->pid] = NULL; // set it to a null pointer just so we know this isn't valid
-                        processes_count--;
-                    }
+                    sched_reap_process(pid);
                 }
                 break;
             case THREAD_STATE_STARTING:
@@ -535,30 +571,10 @@ void sched_pick_next(void) {
                 }
                 break;
             case THREAD_STATE_EXITING:
-                if (processes[threads[nexttid]->pid]->state == PROCESS_STATE_EXITING) {
+                /*if (processes[threads[nexttid]->pid]->state == PROCESS_STATE_EXITING) {
                     // the entire process is exiting, mark everything as dead
-                    for (int i = 0; i < processes[threads[nexttid]->pid]->threadcount; i++) {
-                        threads[processes[threads[nexttid]->pid]->tids[i]]->state = THREAD_STATE_DEAD; // if a thread is marked dead, it will be freed later
-                    }
-                    processes[threads[nexttid]->pid]->tids_size = 0;
-                    processes[threads[nexttid]->pid]->threadcount = 0;
-                    
-                    // these aren't needed anymore and can be safely freed
-                    kfree(processes[threads[nexttid]->pid]->tids); 
-                    liballoc_free(processes[threads[nexttid]->pid]->cr3_virt, 1);
-
-                    // we don't free it if there are any other threads waiting on this process since we need it's exit code
-                    if (!processes[threads[nexttid]->pid]->waiting_threads) {
-                        // if there aren't any, we can safely free the entire process
-                        kfree(processes[threads[nexttid]->pid]->name);
-                        if (processes[threads[nexttid]->pid]->argv != NULL) {
-                            kfree(processes[threads[nexttid]->pid]->argv);
-                        }
-                        kfree(processes[threads[nexttid]->pid]);
-                        processes[threads[nexttid]->pid] = NULL; // set it to a null pointer just so we know this isn't valid
-                        processes_count--;
-                    }
-                }
+                    sched_reap_process(threads[nexttid]->pid);
+                }*/
                 threads[nexttid]->state = THREAD_STATE_DEAD;
                 break;
             case THREAD_STATE_DEAD:
@@ -570,6 +586,13 @@ void sched_pick_next(void) {
                 queue_loc--;
 
                 // TODO: free all pages allocated for the thread's user stack
+
+                // check if this thread was waiting for any other processes to exit, if so, remove that waiting thread from the other process
+                if (threads[nexttid]->wait) {
+                    if (processes[threads[nexttid]->wait] != NULL) {
+                        processes[threads[nexttid]->wait]->waiting_threads--;
+                    }
+                }
 
                 // free the thread
                 kfree(threads[nexttid]->esp_k);
@@ -598,7 +621,7 @@ void sched_user_fault(int eno, uint32_t errorcode) {
             );
             if (!(errorcode & 1)) {
                 // check if the page fault was in the range for the stack
-                if ((cr2 > (threads[currenttid]->stackpdi * 0x400000)) && (cr2 < (threads[currenttid]->stackpdi * 0x400000 + 0x3FFFFF))) {
+                if ((cr2 > (uintptr_t)(threads[currenttid]->stackpdi * 0x400000)) && (cr2 < (uintptr_t)(threads[currenttid]->stackpdi * 0x400000 + 0x3FFFFF))) {
                     // if it was, allocate the page
                     address_t newpage = pmm_alloc_page();
                     vmm_map_page(newpage, cr2 & 0xFFFFF000, 0x7, 0);

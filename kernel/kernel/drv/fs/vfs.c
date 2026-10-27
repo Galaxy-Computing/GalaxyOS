@@ -148,40 +148,37 @@ uint32_t vfs_register_fsdriver(struct vfs_fs_driver *fsdriver) {
 }
 
 struct vfs_file *vfs_find_file(const char *path) {
-    struct vfs_block_device *bd = vfs_find_block_device_by_path(path);
+    char *pathdupao = strdup(path);
+    char *pathdupa = strchr(pathdupao, ':') + 1;
+    char *entry = strrchr(pathdupa, '/') + 1;
+    if ((uintptr_t)entry == 1) {
+        entry = pathdupa;
+    }
 
-    size_t len = strlen(path) + 1;
-    char *pathdup = (char*)kmalloc(len);
-    memcpy(pathdup, path, len);
-
-    char *strptr = NULL;
-    strtok_r(pathdup, ":", &strptr); // this is just to get rid of the volume identifier
-
-    char *entry = strtok_r(NULL, "/", &strptr);
     struct vfs_file *found = NULL;
-    struct vfs_directory *searchdir = bd->mountpoint->root;
-    int set = 0;
+    char* pathdupbo = strdup(path);
 
-    while (entry != NULL) {
-        set = 0;
-        for (uint32_t i = 0; i < searchdir->files_len; i++) {
-            if (!strcmp(searchdir->files[i]->name, entry)) {
-                found = searchdir->files[i];
-                set = 1;
-            }
-        }
-        for (uint32_t i = 0; i < searchdir->directories_len; i++) {
-            if (!strcmp(searchdir->directories[i]->name, entry)) {
-                searchdir = searchdir->directories[i];
-            }
-        }
-        entry = strtok_r(NULL, "/", &strptr);
-        if ((entry == NULL) && (set == 0)) {
-            searchdir = NULL; // we didn't find the file on the last entry in the path, so it doesn't exist
+    char *last_delim = strrchr(pathdupbo, '/');
+    if (last_delim != NULL) {
+        *last_delim = '\0'; 
+    } else {
+        last_delim = strrchr(pathdupbo, ':');
+        if (last_delim != NULL) {
+            last_delim[1] = '\0';
         }
     }
 
-    kfree(pathdup);
+    struct vfs_directory *searchdir = vfs_find_directory(pathdupbo);
+    if (searchdir == NULL) { return NULL; } // directory we're looking for doesn't exist
+
+    for (uint32_t i = 0; i < searchdir->files_len; i++) {
+        if (!strcmp(searchdir->files[i]->name, entry)) {
+            found = searchdir->files[i];
+        }
+    }
+
+    kfree(pathdupao);
+    kfree(pathdupbo);
     return found;
 }
 
@@ -189,9 +186,7 @@ struct vfs_directory *vfs_find_directory(const char *path) {
     struct vfs_block_device *bd = vfs_find_block_device_by_path(path);
     if (bd == NULL) return NULL;
 
-    size_t len = strlen(path) + 1;
-    char *pathdup = (char*)kmalloc(len);
-    memcpy(pathdup, path, len);
+    char *pathdup = strdup(path);
 
     char *strptr = NULL;
     strtok_r(pathdup, ":", &strptr); // this is just to get rid of the volume identifier
@@ -207,6 +202,19 @@ struct vfs_directory *vfs_find_directory(const char *path) {
                 searchdir = searchdir->directories[i];
                 set = 1;
             }
+        }
+        if (!strcmp(entry, "..")) {
+            if (searchdir->parent != NULL) {
+                searchdir = searchdir->parent;
+                set = 1;
+            } else {
+                // tried to get parent of root directory
+                searchdir = NULL;
+                break;
+            }
+        }
+        if (!strcmp(entry, ".")) {
+            set = 1;
         }
         entry = strtok_r(NULL, "/", &strptr);
         if ((entry == NULL) && (set == 0)) {
@@ -216,6 +224,36 @@ struct vfs_directory *vfs_find_directory(const char *path) {
 
     kfree(pathdup);
     return searchdir;
+}
+
+size_t vfs_get_path_directory(struct vfs_directory* dir, char* dst, size_t size) {
+    char* wstring = kmalloc(size);
+    char* wstringb = kmalloc(size);
+    wstring[0] = '\0';
+
+    struct vfs_directory* currdir = dir;
+    while (currdir->parent != NULL) {
+        // TODO: use snprintf once we have it
+        if ((strlen(wstring) + strlen(currdir->name) + 1) > size) {
+            kfree(wstring);
+            kfree(wstringb);
+            return -1;
+        }
+        if (strlen(wstring) != 0) {
+            sprintf(wstringb, "%s/%s", currdir->name, wstring);
+            strncpy(wstring, wstringb, size);
+        } else {
+            strncpy(wstring, currdir->name, size);
+        }
+        currdir = currdir->parent;
+    }
+
+    sprintf(wstringb, "%s:%s", dir->volume->name, wstring);
+    strncpy(dst, wstringb, size);
+
+    kfree(wstring);
+    kfree(wstringb);
+    return strlen(dst);
 }
 
 char *vfs_file_name(int fd) {
@@ -321,7 +359,7 @@ ssize_t vfs_write(int fd, const void *buf, size_t count) {
     if (!(currentps->openfiles_loc > fd)) return -1;
     if (currentps->openfiles[fd] == NULL) return -1;
 
-    ssize_t bytesread = currentps->openfiles[fd]->fsdriver->accessfile(currentps->openfiles[fd]->file->volume->blockdevice, true, currentps->openfiles[fd]->file, buf, count, currentps->openfiles[fd]->loc);
+    ssize_t bytesread = currentps->openfiles[fd]->fsdriver->accessfile(currentps->openfiles[fd]->file->volume->blockdevice, true, currentps->openfiles[fd]->file, (void*)buf, count, currentps->openfiles[fd]->loc);
     currentps->openfiles[fd]->loc += bytesread;
     return bytesread;
 }

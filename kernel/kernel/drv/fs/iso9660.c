@@ -40,7 +40,7 @@ struct vfs_fs_driver iso9660_vfsdrvinfo = {
     .name = "ISO9660"
 };
 
-inline int round_up_integer(int number, int multiple) {
+static inline int round_up_integer(int number, int multiple) {
     if (multiple == 0) return number;
     return ((number + multiple - 1) / multiple) * multiple;
 }

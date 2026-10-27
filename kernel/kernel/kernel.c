@@ -43,7 +43,7 @@ int kmode = 0;
 
 char cmdline[512] = {0};
 
-inline uint32_t round_up_integer(uint32_t number, uint32_t multiple) {
+static inline uint32_t round_up_integer(uint32_t number, uint32_t multiple) {
     if (multiple == 0) return number;
     return ((number + multiple - 1) / multiple) * multiple;
 }
@@ -180,5 +180,8 @@ uint32_t kernel_main(multiboot_info_t* mbd, unsigned int magic, unsigned int pag
         "hlt\n\t"
     );
     kernel_loop();
+
+    panic("Reached end of kernel_main()");
+    return 0; // shut up compiler, this will never actually be reached
 }
 

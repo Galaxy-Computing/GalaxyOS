@@ -18,6 +18,8 @@ int psThreadFork(void); // fork for threads, will return 0 in the spawned thread
 
 __attribute__((__noreturn__))
 void psExit(int code);
+__attribute__((__noreturn__))
+void psExitThread(void);
 
 int psInterfaceCreate(const char* name, int flags);
 int psInterfaceDelete(const char* name);

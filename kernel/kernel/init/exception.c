@@ -18,10 +18,26 @@
 #include <kernel/vga.h>
 #include <kernel/vgatty.h>
 #include <kernel/kernel.h>
+#include <kernel/idt.h>
 #include <stdio.h>
 
 __attribute__((__noreturn__))
 void panic(const char *message) {
+    terminal_setbgcolor(VGA_COLOR_RED);
+    terminal_setfgcolor(VGA_COLOR_WHITE);
+    terminal_clear();
+    printf("KERNEL PANIC\n");
+    printf("Version: %s\n", K_VERSION);
+    printf(message);
+    asm(
+        "cli\n\t"
+        "hlt\n\t"
+    );
+    __builtin_unreachable();
+}
+
+__attribute__((__noreturn__))
+void panic_trace(const char *message) {
     terminal_setbgcolor(VGA_COLOR_RED);
     terminal_setfgcolor(VGA_COLOR_WHITE);
     terminal_clear();

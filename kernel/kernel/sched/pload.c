@@ -39,7 +39,7 @@ int elf_isvalid(const unsigned char* data) {
     struct elf32_header *header = (struct elf32_header*)data;
     // Check if the ELF file is compatible
     // This is probably a bit overkill but we don't care
-    if (strncmp(data, ELFMAG, 4)) { return 1; }
+    if (strncmp((const char*)data, ELFMAG, 4)) { return 1; }
     if (header->e_machine != EM_386) { return 2; }
     if (header->e_type != ET_EXEC) { return 3; }
     if (header->e_version != EV_CURRENT) { return 4; }
@@ -50,12 +50,11 @@ int elf_isvalid(const unsigned char* data) {
 }
 
 int pload_create_process(const char* data, const uint8_t privilege, const char* name, char** args, int nodup) {
-    int elfvalid = elf_isvalid(data);
+    int elfvalid = elf_isvalid((const unsigned char*)data);
     if (elfvalid) { 
         printf("invalid elf file: %i\n", elfvalid);
         return -1; 
     }
-    struct elf32_header *header = (struct elf32_header*)data;
 
     int pid = sched_create_process(privilege, name);
     processes[pid]->state = 2;
@@ -154,7 +153,6 @@ int pload_load_process(int pid, int tid) {
         for (int x = 0; x < pagecnt; x++) {
             pages[x] = pmm_alloc_page();
         }
-        uintptr_t loc = pheader->p_vaddr;
         if (vmm_map_pages_loc(pages, pagecnt, pheader->p_vaddr, 0x7) == NULL) {
             __asm__ (
                 "mov %0, %%cr3\n\t"

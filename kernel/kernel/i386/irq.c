@@ -103,57 +103,38 @@ void irq_install(void) {
 void irq_handler(struct regs *r) {
     ps2kb_loop(); // this is here because we need to do this regularly
 
-    if (currentps->procerr) {
-        if (r->cs & 0x3) {
-            if (currentps->procerrhandler != NULL) {
-                // fake a call to procerrhandler
-                // it's the thread's job to make sure the processor state does not get clobbered
-                r->useresp -= 8;
-                ((uint32_t*)r->useresp)[0] = r->eip;
-                ((uint32_t*)r->useresp)[1] = currentps->procerr;
-                r->eip = (uint32_t)&currentps->procerrhandler;
-                currentps->procerr = 0;
-            } else {
-                // the process hasn't set one, so just kill it
-                sched_exit_process(currentps->procerr);
-                currentps->procerr = 0;
-            }
-            
-        } else {
-            char msgbuf[48];
-            sprintf(msgbuf, "Kernel process crashed: code %i", currentps->procerr);
-            panic(msgbuf);
-        }
+    if (r->int_no < 32) {
+        exception_handle(r);
     }
     
-    if (r->int_no > 32) {
+    if (r->int_no >= 32) {
         sched_check_suspended_threads(r->int_no - 32);
-    }
 
-    /* This is a blank function pointer */
-    void (*handler)(struct regs *r);
+            /* This is a blank function pointer */
+        void (*handler)(struct regs *r);
 
-    /* Find out if we have a custom handler to run for this
-    *  IRQ, and then finally, run it */
-    handler = irq_routines[r->int_no - 32];
-    if (handler)
-    {
-        handler(r);
-    }
+        /* Find out if we have a custom handler to run for this
+        *  IRQ, and then finally, run it */
+        handler = irq_routines[r->int_no - 32];
+        if (handler)
+        {
+            handler(r);
+        }
 
-    if (r->int_no >= 48) {
-        return; // Since the interrupt didn't come from the interrupt controller we don't need to do anything else
-    }
-    /* If the IDT entry that was invoked was greater than 40
-    *  (meaning IRQ8 - 15), then we need to send an EOI to
-    *  the slave controller */
-    if (r->int_no >= 40)
-    {
-        outb(0xA0, 0x20);
-    }
+        if (r->int_no >= 48) {
+            return; // Since the interrupt didn't come from the interrupt controller we don't need to do anything else
+        }
+        /* If the IDT entry that was invoked was greater than 40
+        *  (meaning IRQ8 - 15), then we need to send an EOI to
+        *  the slave controller */
+        if (r->int_no >= 40)
+        {
+            outb(0xA0, 0x20);
+        }
 
-    /* In either case, we need to send an EOI to the master
-    *  interrupt controller too */
-    outb(0x20, 0x20);
+        /* In either case, we need to send an EOI to the master
+        *  interrupt controller too */
+        outb(0x20, 0x20);
+    }
 }
 

@@ -19,6 +19,7 @@
 #include <kernel/vmm.h>
 #include <kernel/pmm.h>
 #include <kernel/kernel.h>
+#include <stdint.h>
 
 #define PAGE_SIZE 0x1000
 
@@ -49,7 +50,7 @@ int liballoc_unlock(void) {
 void *liballoc_alloc(size_t pages) {
     if (pages > 1024) {
         void* start = liballoc_alloc(1024);
-        for (int i = 0; i < (pages/1024)-1; i++) {
+        for (uint32_t i = 0; i < (pages/1024)-1; i++) {
             liballoc_alloc(1024);
         }
         liballoc_alloc(pages % 1024);

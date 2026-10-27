@@ -23,11 +23,11 @@ int safecpy(void* restrict dstptr, const void* restrict srcptr, size_t size, int
 ssize_t safelen(const char* str, int srcuser) {
     ssize_t len = 0;
     unsigned char test = 0xFF;
-    int err = safecpy_asm(&str[len], &test);
+    int err = safecpy_asm((const unsigned char*)&str[len], &test);
     while (test) {
         if (err == -1) return -1;
         len++;
-        err = safecpy_asm(&str[len], &test);
+        err = safecpy_asm((const unsigned char*)&str[len], &test);
     }
         
     if (srcuser) {

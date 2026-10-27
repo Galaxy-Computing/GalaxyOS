@@ -18,7 +18,7 @@ export BOOTDIR=/boot
 export LIBDIR=$EXEC_PREFIX/${HOSTARCH}
 export INCLUDEDIR=$PREFIX/include
 
-export CFLAGS='-Og -g -Wall -Wextra -std=gnu17 -mtune=i686 -march=i486'
+export CFLAGS='-Og -g -Wall -Wextra -Wno-unused-parameter -std=gnu17 -mtune=i686 -march=i486'
 export CPPFLAGS=''
 export LDFLAGS="-L=/galaxyos/${HOSTARCH}"
 

@@ -57,6 +57,7 @@ struct process {
     int        waiting_threads; // this is the counter of other threads waiting for this process to exit
 
     uint8_t    procerr;    // if this is anything other than 0, an error has occurred and the process must handle it or die
+    uint8_t    procerr_unhandled; // set to 1 when procerr hasn't been handled yet, so if one occurs in the handler we can just kill the process
 
     // if this is not null, it is called when procerr is non-zero and a thread belonging to this process is executed
     // if it is null, the process is killed
@@ -100,7 +101,9 @@ void sched_suspend_thread(uint8_t irq, int tid);
 void sched_suspend_current_thread(uint8_t irq);
 int sched_wait_process(int pid);
 int sched_exit_process(int exitcode);
+void sched_exit_thread(void);
 int sched_kill_process(int pid);
+void sched_reap_process(int pid);
 uintptr_t sched_setbrk(void* addr);
 void sched_user_fault(int eno, uint32_t errorcode);
 

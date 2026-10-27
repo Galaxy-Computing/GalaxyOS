@@ -6,7 +6,7 @@
 int getchar() {
 #if defined(__is_libk)
     char tchar;
-    size_t chars_read = term_read(&tchar, 1);
+    term_read(&tchar, 1);
     return (int)tchar;
 #else
     return 0;

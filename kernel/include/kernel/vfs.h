@@ -118,6 +118,7 @@ void vfs_append_directory_file(struct vfs_directory* parent, struct vfs_file* ch
 struct vfs_file *vfs_find_file(const char *path);
 struct vfs_directory *vfs_find_directory(const char *path);
 char *vfs_file_name(int fd);
+size_t vfs_get_path_directory(struct vfs_directory* dir, char* dst, size_t size);
 
 struct vfs_mount_point *vfs_get_mount_info(uint32_t mountid);
 struct vfs_mount_point *vfs_mount_direct(struct vfs_block_device *blockdevice, const struct vfs_mount_point *mp);

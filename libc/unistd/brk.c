@@ -23,7 +23,6 @@ void* internal_brk(void *addr) {
 }
 
 int brk(void *addr) {
-    int syscall_num = SYSCALL_BRK;
     void *retvalue = internal_brk(addr);
 
     if (retvalue != addr) {

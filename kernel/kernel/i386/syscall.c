@@ -221,7 +221,7 @@ int syscall_setup(unsigned int args[]) {
 
 int syscall_getver(unsigned int args[]) {
     char *buf = (char*)args[0];
-    int len = strlen(K_VERSION) + 1;
+    size_t len = strlen(K_VERSION) + 1;
     if (len > args[1]) len = args[1];
     if (safecpy(buf, K_VERSION, len, 0) == -1) return -EFAULT;
     return 0;
@@ -229,11 +229,15 @@ int syscall_getver(unsigned int args[]) {
 
 int syscall_chdir(unsigned int args[]) {
     if (safelen((char*)args[0], 1) == -1) return -EFAULT;
-    if (vfs_find_directory((char*)args[0]) == NULL) { return -ENOENT; }
+
+    struct vfs_directory *newdir = vfs_find_directory((char*)args[0]);
+    if (newdir == NULL) { return -ENOENT; }
+
     int len = strlen((char*)args[0]) + 1;
     kfree(currentps->pwd);
     currentps->pwd = kmalloc(len);
-    strncpy(currentps->pwd, (char*)args[0], len);
+
+    vfs_get_path_directory(newdir, currentps->pwd, len);
     return 0;
 }
 
@@ -272,7 +276,7 @@ int syscall_list(unsigned int args[]) {
 }
 
 int syscall_getcwd(unsigned int args[]) {
-    size_t len = strlen(currentps->pwd);
+    size_t len = strlen(currentps->pwd) + 1;
     if (len > (size_t)args[1]) len = (size_t)args[1];
     if (safecpy((char*)args[0], currentps->pwd, len, 0) == -1) return -EFAULT; 
     return (int)args[0];
@@ -335,7 +339,7 @@ int syscall_pscount(unsigned int args[]) {
 int syscall_pslist(unsigned int args[]) {
     size_t count = 0;
     for (int i = 0; i < last_pid; i++) {
-        if (!((count + 1) < (size_t)args[1])) {
+        if (!((count) < (size_t)args[1])) {
             return (int)count;
         }
         if (processes[i] != NULL) {
@@ -346,9 +350,14 @@ int syscall_pslist(unsigned int args[]) {
     return (int)count;
 }
 
+int syscall_texit(unsigned int args[]) {
+    sched_exit_thread();
+    return 0;
+}
+
 void syscall_handler(struct regs *r) {
     kmode = 0;
-    if ((r->eax < 30) && (r->eax != 0)) { // change that number when adding a new syscall
+    if ((r->eax < 31) && (r->eax != 0)) { // change that number when adding a new syscall
         unsigned int args[] = {r->ecx, r->edx, r->ebx, r->esi, r->edi, r->ebp, (unsigned int)r};
         r->eax = syscalltable[r->eax](args);
     } else {
@@ -389,5 +398,6 @@ void syscall_init(void) {
     syscalltable[27] = &syscall_kill;
     syscalltable[28] = &syscall_pscount;
     syscalltable[29] = &syscall_pslist;
+    syscalltable[30] = &syscall_texit;
 }
 

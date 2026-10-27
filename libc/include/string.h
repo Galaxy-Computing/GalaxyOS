@@ -22,6 +22,7 @@ char *strcpy(char *dest, const char *src);
 char *strncpy (char *s1, const char *s2, size_t n);
 char *strdup(const char *s);
 char *strchr(const char *s, int c);
+char *strrchr(register const char *s, int c);
 char *strtok (char *s, const char *delim);
 char *strtok_r (char *s, const char *delim, char **olds);
 size_t strspn(const char *s, const char *accept);

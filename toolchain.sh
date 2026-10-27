@@ -52,7 +52,7 @@ make install -j$(nproc) 2>&1
 
 # Build gcc and libgcc.
 cd ../build-gcc
-/tmp/toolchain/gcc-$gcc_version/configure --target=$target --prefix=$prefix --with-sysroot=$sysroot --disable-nls --enable-languages=c 2>&1
+../gcc/configure --target=$target --prefix=$prefix --with-sysroot=$sysroot --disable-nls --enable-languages=c 2>&1
 make all-gcc 2>&1
 make install-gcc -j$(nproc) 2>&1
 make all-target-libgcc -j$(nproc) 2>&1

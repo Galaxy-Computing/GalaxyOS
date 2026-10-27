@@ -17,3 +17,15 @@ int psThreadFork(void) {
 
     return retvalue;
 }
+
+__attribute__((__noreturn__))
+void psExitThread(void) {
+    int syscall_num = SYSCALL_TEXIT;
+
+    __asm__ volatile(
+        "mov %0, %%eax\n\t"
+        "int $0x80\n\t"
+        : : "m"  (syscall_num)
+        : "%eax"
+    );
+}

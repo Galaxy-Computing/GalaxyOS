@@ -16,6 +16,7 @@
 
 #include <kernel/liballoc.h>
 #include <kernel/exception.h>
+#include <stdio.h>
 
 #define VERSION 	"1.1"
 #define ALIGNMENT	16ul//4ul				///< This is the byte alignment that memory must be allocated on. IMPORTANT for GTK and other stuff.
@@ -365,8 +366,14 @@ void *PREFIX(malloc)(size_t req_size)
                 // Another major block next to this one?
             if ( maj->next != NULL ) 
             {
-                maj = maj->next;		// Hop to that one.
-                continue;
+                if (maj == maj->next) {
+                    printf("Major block next is equal to current major block");
+                    maj->next = NULL;
+                } else {
+                    maj = maj->next;		// Hop to that one.
+                    continue;
+                }
+                
             }
 
             if ( startedBet == 1 )		// If we started at the best bet,

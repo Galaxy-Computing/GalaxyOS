@@ -593,6 +593,8 @@ void *malloc(size_t req_size)
     liballoc_dump();
     //FLUSH();
     #endif
+
+    return NULL;
 }
 
 void free(void *ptr)

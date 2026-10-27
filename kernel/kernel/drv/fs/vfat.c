@@ -35,12 +35,12 @@ struct vfs_fs_driver vfat_vfsdrvinfo = {
     .name       = "VFAT"
 };
 
-inline uint32_t round_up_integer(uint32_t number, uint32_t multiple) {
+static inline uint32_t round_up_integer(uint32_t number, uint32_t multiple) {
     if (multiple == 0) return number;
     return ((number + multiple - 1) / multiple) * multiple;
 }
 
-inline uint32_t vfat_cluster_to_sector(uint32_t cluster, struct fat_info* fatinfo) {
+static inline uint32_t vfat_cluster_to_sector(uint32_t cluster, struct fat_info* fatinfo) {
     return ((cluster - 2) * fatinfo->fatbs->sectors_per_cluster) + fatinfo->first_data_sector;
 }
 
@@ -59,7 +59,6 @@ uint32_t vfat_sector_to_lba(uint32_t fssector, struct vfs_mount_point* mount) {
 // this assumes data is a pointer to a block of memory the size of at least 1 cluster
 uint32_t vfat_read_cluster(unsigned char* data, uint32_t cluster, struct vfs_mount_point* mount) {
     struct fat_info* fatinfo = (struct fat_info*)(mount->extra);
-    uint32_t sector_size = fatinfo->fatbs->bytes_per_sector;
 
     switch (fatinfo->fat_type) {
         case FAT_TYPE_12:
@@ -98,7 +97,6 @@ uint32_t vfat_read_cluster(unsigned char* data, uint32_t cluster, struct vfs_mou
 // get next cluster in the chain without reading any data
 uint32_t vfat_next_cluster(uint32_t cluster, struct vfs_mount_point* mount) {
     struct fat_info* fatinfo = (struct fat_info*)(mount->extra);
-    uint32_t sector_size = fatinfo->fatbs->bytes_per_sector;
 
     switch (fatinfo->fat_type) {
         case FAT_TYPE_12:
@@ -640,10 +638,10 @@ ssize_t vfat_accessfile(struct vfs_block_device* blockdevice, const bool write, 
 
         uint32_t next_cluster = fcluster;
         if (clusterloc) {
-            for (int i = 0; i < clusterloc; i++) next_cluster = vfat_next_cluster(next_cluster, blockdevice->mountpoint);
+            for (uint32_t i = 0; i < clusterloc; i++) next_cluster = vfat_next_cluster(next_cluster, blockdevice->mountpoint);
         }
 
-        for (int i = 0; i < clusters; i++) {
+        for (uint32_t i = 0; i < clusters; i++) {
             next_cluster = vfat_read_cluster(&tempbuf[i * cluster_size], next_cluster, blockdevice->mountpoint);
         }
 

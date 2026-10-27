@@ -3,4 +3,6 @@
 
 void powerthread(void);
 
+extern int teardown;
+
 #endif

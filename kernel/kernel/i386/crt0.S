@@ -10,7 +10,7 @@ _start:
 	mov %esp, %ebp
 
 	# Tell the kernel where __procerrhandler is
-	mov __procerrhandler, %ecx
+	mov $__procerrhandler, %ecx
 	mov $11, %eax
 	int $0x80
 
@@ -34,8 +34,8 @@ __procerrhandler:
 	pusha
 
 	# The kernel would have placed the error code before the return address on the stack
-	push -36(%esp)
-	call libc_procerrhandler
+	push 36(%esp)
+	call _libc_procerrhandler
 
 	# Tell the kernel that we've finished handling the error
 	mov %eax, %ecx

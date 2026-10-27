@@ -117,11 +117,44 @@ void exception_handle(struct regs *r) {
         if (threads[currenttid]->privilege_level) {
             // hand the exception to the scheduler instead
             sched_user_fault(r->int_no, r->err_code);
-            return;
+        } else {
+            if (r->int_no < 32) {
+                sprintf(exbuf, "CPU exception occurred: %s (0x%x)", cpumessages[r->int_no], r->int_no);
+                panic(exbuf);
+            }
         }
     }
-    if (r->int_no < 32) {
-        sprintf(exbuf, "CPU exception occurred: %s (0x%x)", cpumessages[r->int_no], r->int_no);
-        panic(exbuf);
+    if (currentps != NULL) {
+        if (currentps->procerr) {
+            if (r->cs & 0x3) {
+                if (currentps->procerr_unhandled) {
+                    // double faulted handler
+                    sched_exit_process(currentps->procerr);
+                    currentps->procerr_unhandled = 0;
+                    currentps->procerr = 0;
+                    asm("int $0x30"); // trigger a context switch, this stack will be deleted anyway so we'll never be back here
+                }
+                if (currentps->procerrhandler != NULL) {
+                    // fake a call to procerrhandler
+                    // it's the thread's job to make sure the processor state does not get clobbered
+                    r->useresp -= 8;
+                    ((uint32_t*)r->useresp)[0] = r->eip;
+                    ((uint32_t*)r->useresp)[1] = currentps->procerr;
+                    r->eip = (uint32_t)currentps->procerrhandler;
+                    currentps->procerr_unhandled = 1;
+                    currentps->procerr = 0;
+                } else {
+                    // the process hasn't set one, so just kill it
+                    sched_exit_process(currentps->procerr);
+                    currentps->procerr = 0;
+                    asm("int $0x30"); // trigger a context switch, this stack will be deleted anyway so we'll never be back here
+                }
+                
+            } else {
+                char msgbuf[48];
+                sprintf(msgbuf, "Kernel process crashed: code %i", currentps->procerr);
+                panic(msgbuf);
+            }
+        }
     }
 }

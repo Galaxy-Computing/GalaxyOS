@@ -46,9 +46,23 @@ void cd(int argc, char** argv) {
     if (argc < 2) {
         printf("cd: not enough arguments");
     } else {
-        if (chdir(argv[1]) == -ENOENT) {
-            printf("cd: directory does not exist\n");
+        char* cdpath = strdup(argv[1]);
+        if (strchr(cdpath, ':') != NULL) {
+            if (chdir(cdpath) == -ENOENT) {
+                printf("cd: directory does not exist\n");
+            } 
+        } else {
+            if (cwd[strlen(cwd)-1] == ':') {
+                strncat(cwd, cdpath, MAX_BUF-1);
+            } else {
+                strncat(cwd, "/", MAX_BUF-1);
+                strncat(cwd, cdpath, MAX_BUF-1);
+            }
+            if (chdir(cwd) == -ENOENT) {
+                printf("cd: directory does not exist\n");
+            }
         }
+        free(cdpath);
     }
 }
 
@@ -109,12 +123,30 @@ int main(void) {
         cmdargv = parse_args(buffer, &cmdargc);
 
         int ispath = 0;
-        for (int x = 0; x < i; x++) 
-            if (cmdargv[0][x] == ':' || cmdargv[0][x] == '/')
+        int lenarg = strlen(cmdargv[0]) + 1;
+        for (int x = 0; x < lenarg; x++) 
+            if (cmdargv[0][x] == '/')
                 ispath = 1;
 
-        if (ispath) {
+        for (int x = 0; x < lenarg; x++) 
+            if (cmdargv[0][x] == ':')
+                ispath = 2;
+
+        if (ispath == 2) {
             pid = psExecA(cmdargv[0], cmdargv);
+            if (pid < 0) {
+                if (pid == -ENOENT) {
+                    printf("File %s does not exist\n", buffer);
+                } else {
+                    printf("Could not execute %s (%i)\n", buffer, pid);
+                }
+            }
+        } else if (ispath == 1) {
+            char* truepath = malloc(MAX_BUF);
+            strncpy(truepath, cwd, MAX_BUF-1);
+            strncat(truepath, "/", MAX_BUF-1);
+            strncat(truepath, cmdargv[0], MAX_BUF-1);
+            pid = psExecA(truepath, cmdargv);
             if (pid < 0) {
                 if (pid == -ENOENT) {
                     printf("File %s does not exist\n", buffer);
