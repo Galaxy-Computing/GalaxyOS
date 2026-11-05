@@ -3,8 +3,10 @@
 
 #include <kernel/pmm.h>
 #include <kernel/sched.h>
+#include <stddef.h>
 
 address_t vmm_get_physaddr(address_t virtualaddr);
+int vmm_user_range_writable(address_t virtualaddr, size_t size);
 int vmm_map_page(address_t physaddr, address_t virtualaddr, unsigned int flags, int overwrite);
 void *vmm_map_pages_k(address_t *pages, int pagecount);
 void *vmm_map_pages_u(address_t *pages, int pagecount, struct process *ps);

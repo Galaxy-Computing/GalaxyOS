@@ -90,6 +90,9 @@ int sched_create_thread(int ownerpid, uint8_t noqueue, uint32_t entrypoint) {
     threads[last_tid]->state = THREAD_STATE_STARTING;
     threads[last_tid]->cr3 = processes[ownerpid]->cr3;
     threads[last_tid]->stackpdi = 767;
+    // scheduler reads these for waiting threads
+    threads[last_tid]->wait = 0;
+    threads[last_tid]->wait_msg = NULL;
     
     // create the stack
     threads[last_tid]->esp_k = (uint32_t*)((uint32_t)kmalloc(THREAD_STACK_SIZE)+THREAD_STACK_SIZE); // this is for context switches and kernel level threads
@@ -162,21 +165,40 @@ int sched_create_thread(int ownerpid, uint8_t noqueue, uint32_t entrypoint) {
 
 // should only be called for user mode threads
 int sched_fork_thread(int tid, struct regs* r) {
+    // don't panic on userspace exhaustion
+    if (last_tid >= MAX_THREADS) return -EAGAIN;
+    if (pmm_available() < 16) return -ENOMEM;
+
+    // user controls esp, so keep it inside the stack region
+    uintptr_t stackbase = (uintptr_t)threads[tid]->stackpdi * 0x400000;
+    uintptr_t stackend = stackbase + 0x400000;
+    uintptr_t useresp = (uintptr_t)r->useresp;
+    if (useresp < stackbase || useresp >= stackend) return -EFAULT;
+
     int retvalue = sched_create_thread(threads[tid]->pid, 0, r->eip);
     if (retvalue == -1) return retvalue;
 
-    uint32_t relsp = r->useresp % 0x400000;
-    void* tempstackregion = kmalloc(0x400000 - relsp);
-    memcpy(tempstackregion, (void*)(r->useresp), 0x400000 - relsp); // copy the original thread's stack into the new one
+    uintptr_t newstackbase = (uintptr_t)threads[retvalue]->stackpdi * 0x400000;
+    uintptr_t newdst = newstackbase + (useresp - stackbase);
 
-    vmm_switch_stack(threads[retvalue]);
+    // copy page by page, only one stack is mapped at a time
+    void* tempstackpage = kmalloc(4096);
     int oldtid = currenttid;
-    currenttid = retvalue;
-    memcpy((void*)(r->useresp), tempstackregion, 0x400000 - relsp);
-    currenttid = oldtid;
-    vmm_switch_stack(threads[oldtid]);
+    for (uintptr_t off = 0; off < stackend - useresp; ) {
+        uintptr_t src = useresp + off;
+        size_t chunk = 4096 - (src & 0xFFF);
+        if (chunk > stackend - src) chunk = stackend - src;
 
-    kfree(tempstackregion);
+        memcpy(tempstackpage, (void*)src, chunk);
+        vmm_switch_stack(threads[retvalue]);
+        currenttid = retvalue;
+        memcpy((void*)(newdst + off), tempstackpage, chunk);
+        currenttid = oldtid;
+        vmm_switch_stack(threads[oldtid]);
+
+        off += chunk;
+    }
+    kfree(tempstackpage);
 
     threads[retvalue]->esp_k[4] = r->edi;
     threads[retvalue]->esp_k[5] = r->esi;
@@ -209,6 +231,10 @@ int sched_create_process(uint8_t privilege, const char* name) {
     processes[last_pid]->name[strlen(name)] = '\0';
     processes[last_pid]->argv = NULL; // should implement this later
     processes[last_pid]->argc = 0; // should implement this later
+    processes[last_pid]->environ = NULL;
+    processes[last_pid]->environc = 0;
+    processes[last_pid]->environ_size = 0;
+    processes[last_pid]->pwd = NULL;
     processes[last_pid]->privilege_level = privilege;
     processes[last_pid]->threadcount = 0;
     processes[last_pid]->pid = last_pid;
@@ -265,66 +291,98 @@ int sched_set_cr3(int pid, uint32_t* newcr3) {
 
 uintptr_t sched_setbrk_true(void* addr, struct process *ps) {
     uintptr_t retval = ps->brk;
-    if (addr != NULL) {
-        uintptr_t realbrk = (uintptr_t)addr;
-        if (realbrk % 4096) { realbrk += 4096 - (realbrk % 4096); } // round up to a page boundary
-        if (ps->pgbrk == realbrk) { // we already have the proper amount of memory allocated, there's nothing that needs to be done
-            ps->brk = (uintptr_t)addr;
-            return ps->brk;
-        } else {
-            // make sure we're in the right page directory
-            // this is a bit nasty but i don't want to rewrite a lot of vmm code
-            uintptr_t oldcr3;
-            uintptr_t cr3 = (uintptr_t)ps->cr3;
-            __asm__ (
-                "mov %%cr3, %0\n\t"
-                "mov %1, %%cr3\n\t"
-                : "=r" (oldcr3)
-                : "r" (cr3)
-            );
-            if (ps->pgbrk < realbrk) { // we need to allocate more pages
-                int pagecnt = (realbrk - ps->pgbrk) / 4096;
-                int i;
-                address_t pages[pagecnt];
-                
-                for (i = 0; i < pagecnt; i++) {
-                    pages[i] = pmm_alloc_page();
-                }
-                ps->brk_offset += realbrk - ps->pgbrk;
-                if (vmm_map_pages_u(pages, pagecnt, ps) != NULL) { // this changes pgbrk for us
-                    ps->brk = (uintptr_t)addr;
-                    retval = ps->brk;
-                } 
-            }
-            if (ps->pgbrk > realbrk) { // we need to free some pages
-                int pagecnt = (ps->pgbrk - realbrk) / 4096;
-                int i;
-                int err = 0;
+    if (addr == NULL) return retval; // just query the current break
 
-                for (i = 0; i < pagecnt; i++) {
-                    address_t physaddr = vmm_get_physaddr((address_t)realbrk+(i*4096));
-                    if (!physaddr) {
-                        err = 1;
-                        break;
-                    }
-                    pmm_free_page(physaddr);
-                    if (!vmm_unmap_page((address_t)addr+(i*4096))) {
-                        err = 1;
-                        break;
-                    }
+    uintptr_t wantbrk = (uintptr_t)addr;
+    uintptr_t minbrk = ps->pgbrk - ps->brk_offset;
+
+    // stay above the loader break and below kernel space
+    if (wantbrk < minbrk || wantbrk >= KERNEL_START) return retval;
+
+    uintptr_t realbrk = wantbrk;
+    if (realbrk % 4096) { realbrk += 4096 - (realbrk % 4096); } // round up to a page boundary
+    if (realbrk < wantbrk) return retval; // rounding overflowed
+    // keep out of the thread stack region
+    if (realbrk > (uintptr_t)(KERNEL_START - 0x400000)) return retval;
+
+    if (ps->pgbrk == realbrk) { // we already have the proper amount of memory allocated
+        ps->brk = wantbrk;
+        return ps->brk;
+    }
+
+    // make sure we're in the right page directory
+    uintptr_t oldcr3;
+    uintptr_t cr3 = (uintptr_t)ps->cr3;
+    __asm__ (
+        "mov %%cr3, %0\n\t"
+        "mov %1, %%cr3\n\t"
+        : "=r" (oldcr3)
+        : "r" (cr3)
+    );
+
+    if (ps->pgbrk < realbrk) { // we need to allocate more pages
+        uintptr_t pagecnt = (realbrk - ps->pgbrk) / 4096;
+        uintptr_t oldpgbrk = ps->pgbrk;
+        int failed = 0;
+
+        // check up front so a huge request fails cleanly
+        uintptr_t ptpages = (pagecnt / 1024) + 2;
+        if (pagecnt + ptpages > (uintptr_t)pmm_available()) {
+            failed = 1;
+        } else {
+            for (uintptr_t i = 0; i < pagecnt; i++) {
+                // keep a reserve so pmm can't panic
+                if (pmm_available() < 8) {
+                    failed = 1;
+                    break;
                 }
-                if (!err) {
-                    ps->brk_offset -= ps->pgbrk - realbrk;
-                    ps->brk = (uintptr_t)addr;
-                    retval = ps->brk;
+                address_t page = pmm_alloc_page();
+                if (vmm_map_page(page, ps->pgbrk, 0x7, 0) != 0) {
+                    pmm_free_page(page);
+                    failed = 1;
+                    break;
+                }
+                ps->pgbrk += 4096;
+            }
+        }
+
+        if (!failed) {
+            ps->brk_offset += realbrk - oldpgbrk;
+            ps->brk = wantbrk;
+            retval = wantbrk;
+        } else {
+            // roll back any pages we managed to map
+            while (ps->pgbrk > oldpgbrk) {
+                ps->pgbrk -= 4096;
+                address_t physaddr = vmm_get_physaddr(ps->pgbrk);
+                if (physaddr) {
+                    pmm_free_page(physaddr & ~0xFFF);
+                    vmm_unmap_page(ps->pgbrk);
                 }
             }
-            __asm__ (
-                "mov %0, %%cr3\n\t"
-                : : "r" (oldcr3)
-            );
         }
+    } else { // we need to free some pages
+        uintptr_t pagecnt = (ps->pgbrk - realbrk) / 4096;
+        uintptr_t oldpgbrk = ps->pgbrk;
+
+        for (uintptr_t i = 0; i < pagecnt; i++) {
+            uintptr_t page = ps->pgbrk - 4096;
+            address_t physaddr = vmm_get_physaddr(page);
+            if (physaddr) {
+                pmm_free_page(physaddr & ~0xFFF);
+                vmm_unmap_page(page);
+            }
+            ps->pgbrk -= 4096;
+        }
+        ps->brk_offset -= oldpgbrk - realbrk;
+        ps->brk = wantbrk;
+        retval = wantbrk;
     }
+
+    __asm__ (
+        "mov %0, %%cr3\n\t"
+        : : "r" (oldcr3)
+    );
     return retval;
 }
 
@@ -375,8 +433,9 @@ void sched_exit_thread(void) {
 }
 
 int sched_kill_process(int pid) {
-    if (pid < 0) { return -EINVAL; } // pid is negative
+    if (pid < 0 || pid >= last_pid) { return -ESRCH; } // pid is out of range
     if (processes[pid] == NULL) { return -ESRCH; } // process doesn't exist
+    if (pid == currentps->pid) { return -EINVAL; } // use exit() to terminate yourself
     if (processes[pid]->privilege_level < currentps->privilege_level) { return -EACCES; } // killing process of higher ring level than it
     processes[pid]->exitcode = currentps->pid + 255;
     processes[pid]->state = PROCESS_STATE_EXITING;
@@ -403,13 +462,17 @@ void sched_suspend_current_thread(uint8_t irq) {
 }
 
 int sched_wait_process(int pid) {
-    if (pid >= last_pid) {
-        return -1;
+    if (pid < 0 || pid >= last_pid) {
+        return -ESRCH;
     }
-    if (pid < 0) {
-        return -1;
+    if (processes[pid] == NULL) {
+        return -ESRCH;
+    }
+    if (pid == currentps->pid) {
+        return -EINVAL; // waiting for yourself would deadlock
     }
     threads[currenttid]->wait = pid;
+    threads[currenttid]->wait_msg = NULL;
     processes[pid]->waiting_threads++;
     threads[currenttid]->state = THREAD_STATE_WAITING;
     return 0;
@@ -443,6 +506,12 @@ void sched_check_suspended_threads(uint8_t irq) {
 
 int sched_check_waiting_thread(int tid) {
     int pid = threads[tid]->wait;
+    if (pid < 0 || pid >= last_pid || processes[pid] == NULL) {
+        // waited process vanished, don't dereference a stale pid
+        threads[tid]->wait = 0;
+        threads[tid]->state = THREAD_STATE_RUNNING;
+        return -1;
+    }
     if (processes[pid]->threadcount == 0) {
         processes[pid]->waiting_threads--;
         threads[tid]->wait = 0;
@@ -453,6 +522,8 @@ int sched_check_waiting_thread(int tid) {
 }
 
 void sched_reap_process(int pid) {
+    if (pid < 0 || pid >= last_pid || processes[pid] == NULL) return;
+
     // if there are any threads still active, kill them all
     if (processes[pid]->threadcount) {
         for (int i = 0; i < processes[pid]->threadcount; i++) {
@@ -470,7 +541,19 @@ void sched_reap_process(int pid) {
 
         kfree(processes[pid]->name);
         if (processes[pid]->argv != NULL) {
+            for (int i = 0; i < processes[pid]->argc; i++) {
+                kfree(processes[pid]->argv[i]);
+            }
             kfree(processes[pid]->argv);
+        }
+        if (processes[pid]->environ != NULL) {
+            for (int i = 0; i < processes[pid]->environc; i++) {
+                kfree(processes[pid]->environ[i]);
+            }
+            kfree(processes[pid]->environ);
+        }
+        if (processes[pid]->pwd != NULL) {
+            kfree(processes[pid]->pwd);
         }
 
         sched_free_all(processes[pid]); // free all memory used by the process in userspace
@@ -531,6 +614,7 @@ void sched_pick_next(void) {
                 if (threads[nexttid]->wait_msg != NULL) {
                     // we're waiting for a message queue
                     if (interface_has_msg(threads[nexttid]->wait_msg, threads[nexttid]->pid)) {
+                        threads[nexttid]->wait_msg = NULL; // no longer waiting on a queue
                         threads[nexttid]->state = THREAD_STATE_RUNNING;
                         break;
                     }
@@ -621,7 +705,7 @@ void sched_user_fault(int eno, uint32_t errorcode) {
             );
             if (!(errorcode & 1)) {
                 // check if the page fault was in the range for the stack
-                if ((cr2 > (uintptr_t)(threads[currenttid]->stackpdi * 0x400000)) && (cr2 < (uintptr_t)(threads[currenttid]->stackpdi * 0x400000 + 0x3FFFFF))) {
+                if ((cr2 >= (uintptr_t)(threads[currenttid]->stackpdi * 0x400000)) && (cr2 < (uintptr_t)(threads[currenttid]->stackpdi * 0x400000 + 0x400000))) {
                     // if it was, allocate the page
                     address_t newpage = pmm_alloc_page();
                     vmm_map_page(newpage, cr2 & 0xFFFFF000, 0x7, 0);

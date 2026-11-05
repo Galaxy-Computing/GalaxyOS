@@ -26,8 +26,13 @@ struct interface **intfaces;
 uint32_t intfaces_count;
 uint32_t intfaces_size;
 
+#define MAX_INTERFACE_MESSAGE_SIZE (1024 * 1024)
+#define MAX_INTERFACE_QUEUE_BYTES (4 * 1024 * 1024)
+#define MAX_INTERFACE_MESSAGES    1024
+#define MAX_INTERFACES            256
+
 int interface_find(const char* name) {
-    if (safelen(name, 1) == -1) return -EFAULT; // check if string is valid
+    // name is always a kernel copy here (see interface_name_user())
     for (uint32_t i = 0; i < intfaces_count; i++) {
         if (!strcmp(name, intfaces[i]->name)) {
             return i;
@@ -40,6 +45,7 @@ int interface_create(const char* name, int pid, int flags) {
     int qid = interface_find(name);
     if (qid == -EFAULT) return -EFAULT;
     if (qid != -ENOENT) return -EEXIST;
+    if (intfaces_count >= MAX_INTERFACES) return -ENOSPC;
     
     struct interface *newqueue = kmalloc(sizeof(struct interface));
 
@@ -70,6 +76,18 @@ int interface_delete(const char* name, int pid) {
         kfree(intfaces[qid]->messages[i]);
     }
     kfree(intfaces[qid]->messages);
+    kfree(intfaces[qid]->name);
+
+    // wake waiters so they don't keep a dangling pointer
+    for (int i = 0; i < last_tid; i++) {
+        if (threads[i] != NULL && threads[i]->state == THREAD_STATE_WAITING &&
+            threads[i]->wait_msg == intfaces[qid]) {
+            threads[i]->wait_msg = NULL;
+            threads[i]->wait = 0;
+            threads[i]->state = THREAD_STATE_RUNNING;
+        }
+    }
+
     kfree(intfaces[qid]);
 
     for (uint32_t i = qid; i < intfaces_count-1; i++) {
@@ -83,6 +101,17 @@ int interface_delete(const char* name, int pid) {
 int interface_send(const char* name, int senderpid, int recvpid, void* buf, size_t size) {
     int qid = interface_find(name);
     if (qid < 0) return qid;
+    if (size > MAX_INTERFACE_MESSAGE_SIZE) return -EMSGSIZE;
+    if (intfaces[qid]->messages_count >= MAX_INTERFACE_MESSAGES) return -ENOSPC;
+
+    size_t queued = 0;
+    for (uint32_t i = 0; i < intfaces[qid]->messages_count; i++) {
+        queued += intfaces[qid]->messages[i]->size;
+    }
+    if (queued > MAX_INTERFACE_QUEUE_BYTES ||
+        size > MAX_INTERFACE_QUEUE_BYTES - queued) {
+        return -ENOSPC;
+    }
 
     // only allow the creator to send messages to any pid, and only allow any pid to send a message to the creator
     if (intfaces[qid]->flags & INTERFACE_FLAG_PRIVATE) {
@@ -109,7 +138,11 @@ int interface_send(const char* name, int senderpid, int recvpid, void* buf, size
     newmsg->pid = recvpid;
     newmsg->sender = senderpid;
     newmsg->buf = kmalloc(size);
-    if (safecpy(newmsg->buf, buf, size, 1)) return -EFAULT;
+    if (safecpy_from_user(newmsg->buf, buf, size)) {
+        kfree(newmsg->buf);
+        kfree(newmsg);
+        return -EFAULT;
+    }
     newmsg->size = size;
 
     intfaces[qid]->messages[intfaces[qid]->messages_count] = newmsg;
@@ -142,7 +175,8 @@ int interface_recv(const char* name, int recvpid, void* buf, size_t size, size_t
     size_t truesize = intfaces[qid]->messages[mid]->size;
     if (size < truesize) truesize = size;
 
-    if (safecpy(buf, intfaces[qid]->messages[mid]->buf, truesize, 0) == -1) return -EFAULT;
+    if (safecpy_to_user(buf, intfaces[qid]->messages[mid]->buf, truesize) == -1) return -EFAULT;
+    if (safecpy_to_user(size_out, &truesize, sizeof(size_t)) == -1) return -EFAULT;
 
     int senderpid = intfaces[qid]->messages[mid]->sender;
     kfree(intfaces[qid]->messages[mid]->buf);
@@ -153,7 +187,6 @@ int interface_recv(const char* name, int recvpid, void* buf, size_t size, size_t
     }
     intfaces[qid]->messages_count--;
 
-    if (safecpy(size_out, &truesize, sizeof(size_t), 0) == -1) return -EFAULT;
     return senderpid;
 }
 
@@ -180,6 +213,7 @@ int interface_wait(const char* name, struct thread* thread) {
     if (qid < 0) return qid;
 
     thread->state = THREAD_STATE_WAITING;
+    thread->wait = 0;
     thread->wait_msg = intfaces[qid];
 
     return 0;

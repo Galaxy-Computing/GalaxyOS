@@ -20,6 +20,7 @@
 #include <kernel/vgatty.h>
 #include <kernel/kernel.h>
 #include <kernel/sched.h>
+#include <kernel/safecpy.h>
 #include <stdio.h>
 #include <stdarg.h>
 
@@ -137,9 +138,16 @@ void exception_handle(struct regs *r) {
                 if (currentps->procerrhandler != NULL) {
                     // fake a call to procerrhandler
                     // it's the thread's job to make sure the processor state does not get clobbered
-                    r->useresp -= 8;
-                    ((uint32_t*)r->useresp)[0] = r->eip;
-                    ((uint32_t*)r->useresp)[1] = currentps->procerr;
+                    uint32_t frame[2] = { r->eip, currentps->procerr };
+                    uintptr_t newesp = (uintptr_t)r->useresp - sizeof(frame);
+                    if ((uintptr_t)r->useresp < sizeof(frame) ||
+                        safecpy_to_user((void*)newesp, frame, sizeof(frame)) == -1) {
+                        // bad handler stack, kill the process instead
+                        sched_exit_process(currentps->procerr);
+                        currentps->procerr = 0;
+                        asm("int $0x30");
+                    }
+                    r->useresp = (uint32_t)newesp;
                     r->eip = (uint32_t)currentps->procerrhandler;
                     currentps->procerr_unhandled = 1;
                     currentps->procerr = 0;

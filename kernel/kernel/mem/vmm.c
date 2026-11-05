@@ -21,6 +21,7 @@
 #include <kernel/liballoc.h>
 #include <kernel/exception.h>
 #include <kernel/sched.h>
+#include <kernel/kernel.h>
 #include <stddef.h>
 #include <string.h>
 
@@ -50,6 +51,29 @@ address_t vmm_get_physaddr(address_t virtualaddr) {
 	}
 
     return (address_t)((pt[ptindex] & ~0xFFF) + ((unsigned long)virtualaddr & 0xFFF));
+}
+
+// non-zero if every page in the user range is present, writable and user-accessible
+int vmm_user_range_writable(address_t virtualaddr, size_t size) {
+    if (size == 0) return 1;
+    if (virtualaddr >= KERNEL_START) return 0;
+    if (size > KERNEL_START - virtualaddr) return 0;
+
+    address_t start = virtualaddr & ~0xFFF;
+    address_t end = (virtualaddr + size - 1) & ~0xFFF;
+
+    unsigned long *pd = (unsigned long *)PAGE_DIRECTORY_ADDR;
+    for (address_t page = start; ; page += PAGE_SIZE) {
+        unsigned long pdindex = page >> 22;
+        unsigned long ptindex = (page >> 12) & 0x03FF;
+        if ((pd[pdindex] & 0x7) != 0x7) return 0;
+
+        unsigned long *pt = ((unsigned long *)PAGE_TABLE_ADDR) + (0x400 * pdindex);
+        if ((pt[ptindex] & 0x7) != 0x7) return 0;
+
+        if (page == end) break;
+    }
+    return 1;
 }
 
 int vmm_map_page(address_t physaddr, address_t virtualaddr, unsigned int flags, int overwrite) {

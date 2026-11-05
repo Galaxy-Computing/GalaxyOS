@@ -182,12 +182,9 @@ void ps2kb_handler(struct regs *r) {
 
 size_t ps2kb_read_chars(char *buf, size_t size) {
     size_t chars_read = 0;
-    for (unsigned int i = keybuf_start; i < keybuf_end; i++) {
-        if (i-keybuf_start > size) {
-            break;
-        }
-        buf[chars_read++] = keybuf[keybuf_start++];
-        keybuf_start = keybuf_start % KEYBUF_SIZE;
+    while ((chars_read < size) && (keybuf_start != keybuf_end)) {
+        buf[chars_read++] = keybuf[keybuf_start];
+        keybuf_start = (keybuf_start + 1) % KEYBUF_SIZE;
     }
     return chars_read;
 }

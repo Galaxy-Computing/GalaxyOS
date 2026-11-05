@@ -37,6 +37,7 @@ struct process {
 
     char       **environ;
     int        environc;
+    int        environ_size;   // capacity of the environ array
     char       *pwd;
 
     char       **argv;

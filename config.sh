@@ -1,7 +1,7 @@
 #!/bin/bash
 if [[ ! -v PROJECTS ]]; then
-  SYSTEM_HEADER_PROJECTS="libc kernel userland"
-  PROJECTS="libc kernel userland"
+  SYSTEM_HEADER_PROJECTS="libc kernel userland sdk"
+  PROJECTS="libc kernel userland sdk"
 fi
 
 export MAKE=${MAKE:-make "$@"}

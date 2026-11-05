@@ -80,6 +80,7 @@ int pload_create_process(const char* data, const uint8_t privilege, const char* 
         // duplicate environment variables and working directory
         processes[pid]->environ = kmalloc(sizeof(char**) * (currentps->environc + 1));
         processes[pid]->environc = currentps->environc;
+        processes[pid]->environ_size = currentps->environc + 1;
         for (int i = 0; i < currentps->environc; i++) {
             int evarlen = strlen(currentps->environ[i]) + 1;
             processes[pid]->environ[i] = kmalloc(evarlen);
@@ -93,6 +94,7 @@ int pload_create_process(const char* data, const uint8_t privilege, const char* 
         // Set all values to null
         processes[pid]->environ = kcalloc(1, sizeof(char**));
         processes[pid]->environc = 0;
+        processes[pid]->environ_size = 1;
         processes[pid]->pwd = kcalloc(1, 1);
     }
 

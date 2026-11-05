@@ -13,5 +13,10 @@ extern int errno;
 #define EINVAL     8
 #define EOWNERDEAD 9
 #define ESRCH      10
+#define EBADF      11
+#define ENAMETOOLONG 12
+#define ENOSPC     13
+#define EMSGSIZE   14
+#define E2BIG      15
 
 #endif
