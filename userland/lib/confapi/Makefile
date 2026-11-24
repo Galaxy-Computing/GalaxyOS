@@ -20,7 +20,7 @@ CFLAGS:=$(CFLAGS)
 CPPFLAGS:=$(CPPFLAGS)
 
 OBJS=\
-
+intfcom.o \
 
 BINARIES=confapi.a
 

@@ -6,6 +6,9 @@
 int fsSize(int fd);
 int fsList(const char* path, char* buf, size_t size, int dirs); // returns a list of files/directories in a directory, with '\n' being the delimiter
 
+// helper function that just reads all data from a file and automatically allocates a buffer
+void* fsReadAll(char* path, size_t* outsize);
+
 // TODO: implement
 // these are here to define what will be implemented later
 int fsOpen(char *path, int mode);

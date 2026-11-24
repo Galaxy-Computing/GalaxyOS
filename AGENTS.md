@@ -12,6 +12,12 @@
 ## Code style
 
 - Match the existing style around the code you are editing, including naming, indentation, error handling, and control-flow patterns.
+- Keep function definitions, prototypes, and calls on a single line. Do not wrap parameter or argument lists across multiple lines, even when the line is long.
+- Keep return expressions on a single line. Do not wrap them across multiple lines, even when the expression is long.
+
+## Clarification
+
+- If there is any doubt about what the user wants, ask them before making assumptions.
 
 ## Build
 

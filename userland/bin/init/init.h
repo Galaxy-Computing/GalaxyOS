@@ -2,6 +2,7 @@
 #define _INIT_H
 
 void powerthread(void);
+void panicthread(void);
 
 extern int teardown;
 

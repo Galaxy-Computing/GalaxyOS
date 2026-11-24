@@ -6,7 +6,10 @@
 #include <sysbase.h>
 #include "init.h"
 
+#define MAX_PANIC_MESSAGE_SIZE 1024
+
 char buf[256];
+char panicbuf[MAX_PANIC_MESSAGE_SIZE];
 
 int reboot(int sender) {
     printf("init: rebooting now\n");
@@ -48,6 +51,15 @@ void powerthread(void) {
             psInterfaceSend("sys:power", sender, &ret, 1);
         }
         
+    }
+}
+
+void panicthread(void) {
+    for (;;) {
+        size_t sizeread = 0;
+        int sender = psInterfaceRecieve("sys:panic", panicbuf, MAX_PANIC_MESSAGE_SIZE, &sizeread);
+        if (sender < 0) continue;
+        sysKernelPanic(panicbuf);
     }
 }
 

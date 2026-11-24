@@ -31,7 +31,7 @@ BINARIES=init.elf
 all: $(BINARIES)
 
 init.elf: $(OBJS)
-	$(CC) -o $@ $(CFLAGS) $(OBJS) $(LDFLAGS) -l:glcore.a
+	$(CC) -o $@ $(CFLAGS) $(OBJS) $(LDFLAGS) -l:confapi.a -l:glcore.a
 
 .c.o:
 	$(CC) -MD -c $< -o $@ -std=gnu11 $(CFLAGS) $(CPPFLAGS)

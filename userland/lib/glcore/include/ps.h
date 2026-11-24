@@ -15,6 +15,7 @@ int psGetEVar(const char* name, char* buf, size_t size);
 int psSetEVar(const char* name, const char* val);
 
 int psThreadFork(void); // fork for threads, will return 0 in the spawned thread, but the thread id in the spawning thread
+void psYield(void);
 
 __attribute__((__noreturn__))
 void psExit(int code);

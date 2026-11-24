@@ -21,6 +21,7 @@ CPPFLAGS:=$(CPPFLAGS)
 
 OBJS=\
 main.o \
+comm.o \
 
 BINARIES=confsrv.elf
 
@@ -30,7 +31,7 @@ BINARIES=confsrv.elf
 all: $(BINARIES)
 
 confsrv.elf: $(OBJS)
-	$(CC) -o $@ $(CFLAGS) $(OBJS) $(LDFLAGS) -l:glcore.a
+	$(CC) -o $@ $(CFLAGS) $(OBJS) $(LDFLAGS) -l:confapi.a -l:gcf.a -l:glcore.a
 
 .c.o:
 	$(CC) -MD -c $< -o $@ -std=gnu11 $(CFLAGS) $(CPPFLAGS)

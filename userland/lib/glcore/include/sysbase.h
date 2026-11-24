@@ -11,6 +11,7 @@ int sysVersionN(char* out, int size); // returns full version string with size l
 #define sysPS_REBOOT 2
 
 int sysSetPowerState(int state); // 0 = running, 1 = shutdown, 2 = reboot
+int sysKernelPanic(char* message); // will return -EACCES if not called by init
 
 // TODO: implement
 // these are here to define what will be implemented later

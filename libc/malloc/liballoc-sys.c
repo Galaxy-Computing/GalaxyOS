@@ -23,8 +23,9 @@
 static int lock = 0;
 
 int liballoc_lock(void) {
-    if (!lock) { lock = 1; return 0; }
-    return -1;
+    while (lock) { __asm__ volatile("int $0x30"); }
+    lock = 1;
+    return 0;
 }
 
 int liballoc_unlock(void) {

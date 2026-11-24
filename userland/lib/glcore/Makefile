@@ -28,6 +28,8 @@ ps/thread.o \
 ps/info.o \
 fs/size.o \
 fs/list.o \
+fs/read.o \
+sysbase/panic.o \
 sysbase/power.o \
 sysbase/version.o \
 sysbase/memusage.o \

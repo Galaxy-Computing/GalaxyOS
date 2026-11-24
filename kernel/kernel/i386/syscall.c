@@ -25,6 +25,7 @@
 #include <kernel/safecpy.h>
 #include <kernel/vmm.h>
 #include <kernel/power.h>
+#include <kernel/exception.h>
 #include <sys/types.h>
 #include <errno.h>
 #include <string.h>
@@ -598,7 +599,7 @@ int syscall_spstate(unsigned int args[]) {
             return -ENOSYS; // TODO: implement shutdown
         case 2:
             // only init may reboot
-            if (currentps->pid != 1) return -EACCES;
+            if (currentps->pid != 2) return -EACCES;
             // if we are here, init should have cleaned up everything in userspace
             reboot();
             return 0;
@@ -634,9 +635,17 @@ int syscall_texit(unsigned int args[]) {
     return 0;
 }
 
+int syscall_upanic(unsigned int args[]) {
+    if (currentps->pid != 2) return -EACCES; // only let init call this
+    int err;
+    char *text = kstrdup_user((void*)args[0], 1024, &err);
+    if (text == NULL) return err;
+    panic(text);
+}
+
 void syscall_handler(struct regs *r) {
     kmode = 0;
-    if ((r->eax < 31) && (r->eax != 0)) { // change that number when adding a new syscall
+    if ((r->eax < 32) && (r->eax != 0)) { // change that number when adding a new syscall
         unsigned int args[] = {r->ecx, r->edx, r->ebx, r->esi, r->edi, r->ebp, (unsigned int)r};
         r->eax = syscalltable[r->eax](args);
     } else {
@@ -678,5 +687,6 @@ void syscall_init(void) {
     syscalltable[28] = &syscall_pscount;
     syscalltable[29] = &syscall_pslist;
     syscalltable[30] = &syscall_texit;
+    syscalltable[31] = &syscall_upanic;
 }
 

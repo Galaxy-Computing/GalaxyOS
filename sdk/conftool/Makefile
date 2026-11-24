@@ -2,7 +2,9 @@ LDFLAGS?=
 LIBS?=
 
 CFLAGS:=-Og -g -Wall -Wextra
-CPPFLAGS:=$(CPPFLAGS) -Iinclude
+CPPFLAGS:=$(CPPFLAGS) -I../../userland/lib/gcf/include
+
+GCF_HOST_LIB:=../../userland/lib/gcf/gcf-host.a
 
 DESTDIR:=../bin/
 
@@ -23,8 +25,11 @@ BINARIES=conftool
 
 all: $(BINARIES)
 
-conftool: $(OBJS)
-	$(CC) -o $@ $(CFLAGS) $(OBJS) $(LDFLAGS)
+conftool: $(OBJS) $(GCF_HOST_LIB)
+	$(CC) -o $@ $(CFLAGS) $(OBJS) $(GCF_HOST_LIB) $(LDFLAGS)
+
+$(GCF_HOST_LIB): ../../userland/lib/gcf/gcf.c ../../userland/lib/gcf/include/gcf.h
+	$(MAKE) -C ../../userland/lib/gcf host
 
 .c.o:
 	$(CC) -MD -c $< -o $@ -std=gnu11 $(CFLAGS) $(CPPFLAGS)

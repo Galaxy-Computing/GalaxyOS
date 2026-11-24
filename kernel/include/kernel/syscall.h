@@ -31,6 +31,7 @@
 #define SYSCALL_PSCOUNT  28
 #define SYSCALL_PSLIST   29
 #define SYSCALL_TEXIT    30
+#define SYSCALL_UPANIC   31
 
 void syscall_init(void);
 

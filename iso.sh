@@ -4,11 +4,16 @@ set -e
 
 mkdir -p isodir
 mkdir -p imgdir
+mkdir -p imgdir/galaxyos/config
 mkdir -p isodir/boot
 mkdir -p isodir/boot/grub
 
 cp -r sysroot/* imgdir/
-cp -r files/${HOSTARCH}/* imgdir/
+
+# build config file
+sdk/bin/conftool set init.cmdline "local:galaxyos/i386/gsh.elf" -f imgdir/galaxyos/config/system.gcf
+sdk/bin/conftool set init.path "local:galaxyos/i386;local:galaxyos" -f imgdir/galaxyos/config/system.gcf
+sdk/bin/conftool compact -f imgdir/galaxyos/config/system.gcf
 
 # we don't need includes in the system files once the OS is actually built
 rm -r imgdir/galaxyos/include

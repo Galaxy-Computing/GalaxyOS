@@ -1,3 +1,4 @@
+#include <sysbase.h>
 #include <kernel/syscall.h>
 
 int sysSetPowerState(int state) {

@@ -52,7 +52,7 @@ int elf_isvalid(const unsigned char* data) {
 int pload_create_process(const char* data, const uint8_t privilege, const char* name, char** args, int nodup) {
     int elfvalid = elf_isvalid((const unsigned char*)data);
     if (elfvalid) { 
-        printf("invalid elf file: %i\n", elfvalid);
+        //printf("invalid elf file: %i\n", elfvalid);
         return -1; 
     }
 

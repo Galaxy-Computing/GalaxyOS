@@ -28,4 +28,9 @@ void psExitThread(void) {
         : : "m"  (syscall_num)
         : "%eax"
     );
+    __builtin_unreachable();
+}
+
+void psYield(void) {
+    __asm__ volatile("int $0x30");
 }

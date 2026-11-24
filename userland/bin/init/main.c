@@ -5,21 +5,21 @@
 #include <ps.h>
 #include <fs.h>
 #include <sysbase.h>
+#include <confapi.h>
+#include <errno.h>
 
 #include "init.h"
 
-#define CONFIG_CMDLINE "local:galaxyos/config/cmdline"
-#define CONFIG_PATH "local:galaxyos/config/path"
 #define DEFAULT_PWD "local:"
+#define MAX_CFGVAR_LENGTH 512
 
 int teardown = 0;
 
 int main(int argc, char* argv[]) {
-    if (argc != 1) {
-        printf("init must be ran by the kernel\n");
-        return -1;
-    }
-    if (argv[0][0] != '\0') {
+    int userran = 0;
+    if (argc != 1) { userran = 1; }
+    if (argv[0][0] != '\0') { userran = 1; }
+    if (userran) {
         printf("init must be ran by the kernel\n");
         return -1;
     }
@@ -30,6 +30,7 @@ int main(int argc, char* argv[]) {
 
     chdir(DEFAULT_PWD);
 
+    /*
     int fdcmdline = open(CONFIG_CMDLINE, O_RDONLY);
     if (fdcmdline < 0) { return -1; }
     int sizesh = fsSize(fdcmdline);
@@ -45,14 +46,11 @@ int main(int argc, char* argv[]) {
     read(fdpath, pathvar, sizepath);
     close(fdpath);
     pathvar[sizepath] = '\0';
+    */
 
-    printf("init: setting path variable\n");
-    psSetEVar("PATH", pathvar);
+    psInterfaceCreate("sys:panic", 1); // make sure this interface exists before we start confsrv in order to avoid potential race condition
 
-    printf("init: starting confsrv\n");
-    psExecA("local:galaxyos/i386/confsrv.elf", (char *[]){"confsrv.elf", NULL});
-
-    printf("init: starting power management thread\n");
+    printf("init: starting power management threads\n");
     int newtid = psThreadFork();
     if (newtid == 0) {
         // child thread
@@ -63,6 +61,34 @@ int main(int argc, char* argv[]) {
         psExitThread();
     }
 
+    newtid = psThreadFork();
+    if (newtid == 0) {
+        // child thread
+        panicthread();
+
+        // should never be down here
+        printf("init: panic thread returned!!\n");
+        psExitThread();
+    }
+
+    printf("init: starting confsrv\n");
+    int retval = psExecA("local:galaxyos/i386/confsrv.elf", (char *[]){"confsrv.elf", NULL});
+    if (retval == -ENOENT) { sysKernelPanic("System file missing or corrupt"); }
+    
+    char pathvar[MAX_CFGVAR_LENGTH];
+    char shpath[MAX_CFGVAR_LENGTH];
+
+    retval = confapiGetValue("init.path", pathvar, MAX_CFGVAR_LENGTH);
+    while (retval == -ENOENT) { retval = confapiGetValue("init.path", pathvar, MAX_CFGVAR_LENGTH); }
+    confapiGetValue("init.cmdline", shpath, MAX_CFGVAR_LENGTH);
+
+    // prevent buffer overrun
+    pathvar[MAX_CFGVAR_LENGTH-1] = '\0';
+    shpath[MAX_CFGVAR_LENGTH-1] = '\0';
+
+    printf("init: setting path variable\n");
+    psSetEVar("PATH", pathvar);
+
     printf("init: starting shell binary\n");
     for (;;) {
         // execute the shell binary
@@ -71,7 +97,7 @@ int main(int argc, char* argv[]) {
         psWait(shellpid);
         if (teardown == 1) {
             psExitThread();
-            for (;;) {} // fallback if we're somehow down here
+            for (;;) { psYield(); } // fallback if we're somehow down here
         }
         printf("init: shell died, starting it again\n");
     }

@@ -16,7 +16,7 @@ int main(int argc, char* argv[]) {
         read(fd, data, size);
         close(fd);
         data[size] = '\0';
-        printf(data);
+        write(1, data, size);
         putchar('\n');
     } else {
         printf("cat: not enough arguments\n");
